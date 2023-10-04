@@ -5455,6 +5455,15 @@ int BeliefPropagation::RealizePost(void) {
     printf ("%s", getStatMessage().c_str() );
   }
 
+  // cur_iter is total number of realizepost completed (unconditional).
+  // force stop if max_iter reached.
+  op.cur_iter++;  
+  if (op.cur_iter >= op.max_iter && op.max_iter > 0) {
+     op.cur_iter = op.max_iter;
+     st.success = -1;
+     ret = -4;  
+  } 
+
   // check entire map completion
   if (ret<=0) {
 
@@ -5479,7 +5488,7 @@ int BeliefPropagation::RealizePost(void) {
     st.num_block_fail++;    // equal to total_block_cnt - num_block_success
   }
 
-  /*if (op.verbose >= VB_RUN) {
+  if (op.verbose >= VB_RUN) {
     printf ("Block (%s): total blks: %d, failcnt: %d, success rate: %3.1f%%, #success: %d, ave retry: %3.1f, #soften: %d, resolved: %d (%4.1f%%), solved: %d (%4.1f%%)\n",
             (m_return==0) ? "SUCCESS" : "FAIL   ",
             (int)st.total_block_cnt,
@@ -5491,14 +5500,8 @@ int BeliefPropagation::RealizePost(void) {
             (int)st.total_resolved, 100.0*float(st.total_resolved)/getNumVerts(),
             op.solved_tile_cnt, 100.0*float(op.solved_tile_cnt)/getNumVerts()        
         );
-  }*/
-  
-  // cur_iter is total number of realizepost completed (unconditional).
-  // force stop if max_iter reached.
-  op.cur_iter++;  
-  if (op.cur_iter >= op.max_iter && op.max_iter > 0) {
-     ret = -4;  
-  } 
+  }
+
   return ret;
 }
 

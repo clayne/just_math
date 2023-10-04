@@ -522,11 +522,11 @@ bool Sample::init()
 
   //-- Experiments  
 
-  /*bpc.expr.name = "pm";
-  bpc.expr.num_expr = 30;
+  bpc.expr.name = "current";
+  bpc.expr.num_expr = 25;
   bpc.expr.num_run = 50;
-  bpc.expr.grid_min.Set (10, 10, 1);
-  bpc.expr.grid_max.Set (310, 310, 1);
+  bpc.expr.grid_min.Set (50, 50, 1);
+  bpc.expr.grid_max.Set (300, 300, 1);
   bpc.expr.maxstep_min = 10000;
   bpc.expr.maxstep_max = 10000;
   bpc.expr.steprate_min = 0.98;
@@ -536,7 +536,7 @@ bool Sample::init()
   bpc.st.instr = 0;
 
   bp_experiments ( bpc );
-  exit(-6); */
+  exit(-6); 
    
   // Initiate Algorithm
   
