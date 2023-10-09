@@ -123,8 +123,8 @@ bool Sample::init ()
   Reset ();
 
 	m_max_speed = 500.0;		// top speed, 500 m/s = 1800 kph = 1118 mph
-	m_DT = 0.002;
-	m_wind.Set (-50, 0, 0);
+	m_DT = 0.001;
+	m_wind.Set (0, 0, 0);
 
 	return true;
 }
@@ -137,12 +137,13 @@ void Sample::Reset ()
 
 	for (int n=0; n < m_num_birds; n++ ) {
 		pos.x = m_rnd.randF( -50, 50 );
-		pos.y = m_rnd.randF(  50, 100 );
+		pos.y = m_rnd.randF(  100, 200 );
 		pos.z = m_rnd.randF( -50, 50 );
 		vel = m_rnd.randV3( -10, 10 );
 		AddBird ( pos, vel, Vector3DF(0, 0, 90), 3);
 	}
 }
+
 
 void Sample::drawGrid( Vector4DF clr )
 {
@@ -181,8 +182,8 @@ void Sample::Advance ()
 	Vector3DF force, torque, vaxis;
 	Quaternion ctrl_pitch;
 	float airflow, dynamic_pressure;
-	float m_LiftFactor = 0.002;
-	float m_DragFactor = 0.002;
+	float m_LiftFactor = 0.001;
+	float m_DragFactor = 0.001;
 	float mass = 0.1;							// body mass (kg)
 	float CL, L;
 	Quaternion ctrlq, tq;
@@ -211,7 +212,7 @@ void Sample::Advance ()
 		b->orient.toEuler ( angs );				
 		angs.z = fmod (angs.z, 360.0 );
 
-		float reaction_delay = 0.00002;
+		float reaction_delay = 0.00001;
 
 		// Banking - correlate banking with yaw
 		b->target.x = circleDelta(b->target.z, angs.z);
@@ -290,7 +291,7 @@ void Sample::Advance ()
 		// this is an assumption yet much simpler/faster than integrating body orientation
 		// this way we dont need torque, angular vel, or rotational inertia.
 		// stalls are possible but not flat spins or 3D flying		
-		angvel.fromRotationFromTo ( fwd, vaxis, .5 );
+		angvel.fromRotationFromTo ( fwd, vaxis, .1 );
 		if ( !isnan(angvel.X) ) {
 			b->orient *= angvel;
 			b->orient.normalize();			
@@ -339,17 +340,18 @@ void Sample::display ()
 		Advance ();
 	}	
 
-	if (m_cockpit_view)
+	if (m_cockpit_view) {
 		CameraToCockpit ( m_bird_sel);
-	else	
+	} else {
 		CameraToBird ( m_bird_sel );
+  }
 
 	clearGL();
 	start2D ();
 	setview2D ( w, h );
 
 	b =  (Bird*) m_Birds.GetElem(0, m_bird_sel);
-	sprintf ( msg, "%f %f %f\n", b->target.x, b->target.y, b->target.z );
+	sprintf ( msg, "%f %f %f, %f\n", b->target.x, b->target.y, b->target.z, b->speed );
 	drawText ( 10, 10, msg, 1,1,1,1);
 
 
