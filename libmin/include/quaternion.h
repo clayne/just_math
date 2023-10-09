@@ -44,6 +44,7 @@
 
 	#define Q_EPS		0.00001
 
+
 	// Quaternion
 	// - concisely express an orientation
 	// - or a rotation transformation
@@ -58,7 +59,7 @@
 
 			//! Constructor which converts euler angles (radians) to a Quaternion
 			inline Quaternion(f32 x, f32 y, f32 z)				{ set(x, y, z); }
-			inline void fromEuler (Vector3DF angs)				{ set(angs.x, angs.y, angs.z); }
+			inline void fromEuler (Vector3DF angs)				{ set( angs ); }
 
 			//! Constructor which converts euler angles (radians) to a Quaternion
 			inline Quaternion(const Vector3DF& angs)			{ set(angs.x, angs.y, angs.z); }

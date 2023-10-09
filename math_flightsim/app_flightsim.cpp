@@ -107,9 +107,9 @@ bool Sample::init ()
 	m_cam->setNearFar ( 1.0, 100000 );
 	m_cam->SetOrbit ( Vector3DF(-30,30,0), Vector3DF(5,0,0), 10, 1 );
 
-	m_pos.Set (0, 0, 0);
-	m_vel.Set (0, 0, 0);
-	m_airborn = 0;
+	m_pos.Set (0, 10, 0);
+	m_vel.Set (0, 0, 200);
+	m_airborn = 1;
 	m_roll = 0;
 	m_pitch = 0;
 	m_power = 3;				// "throttle up"
@@ -166,7 +166,6 @@ void Sample::drawGrid( Vector4DF clr )
 	}
 
 }
-
 
 void Sample::CheckLanding ()
 {
@@ -233,6 +232,7 @@ void Sample::Advance ()
 	vaxis *= ctrl_pitch;	vaxis.Normalize();	
 
 	m_vel = vaxis * m_speed;
+
 
 	m_force = 0;
 	torque = 0;

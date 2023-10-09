@@ -116,29 +116,22 @@ Quaternion Quaternion::operator+(const Quaternion& b) const
 // sets new Quaternion based on Euler angles
 Quaternion& Quaternion::set(f32 x, f32 y, f32 z)
 {
-	f64 angle;
+	double cr = cos(x * 0.5);
+	double sr = sin(x * 0.5);
+	double cp = cos(y * 0.5);
+	double sp = sin(y * 0.5);
+	double cy = cos(z * 0.5);
+	double sy = sin(z * 0.5);
 
-	angle = x * 0.5;
-	const f64 sr = sin(angle);
-	const f64 cr = cos(angle);
-
-	angle = y * 0.5;
-	const f64 sp = sin(angle);
-	const f64 cp = cos(angle);
-
-	angle = z * 0.5;
-	const f64 sy = sin(angle);
-	const f64 cy = cos(angle);
-
-	const f64 cpcy = cp * cy;
-	const f64 spcy = sp * cy;
-	const f64 cpsy = cp * sy;
-	const f64 spsy = sp * sy;
-
-	X = (f32)(sr * cpcy - cr * spsy);
-	Y = (f32)(cr * spcy + sr * cpsy);
-	Z = (f32)(cr * cpsy - sr * spcy);
-	W = (f32)(cr * cpcy + sr * spsy);
+	double cpcy = cp * cy;
+	double spcy = sp * cy;
+	double cpsy = cp * sy;
+	double spsy = sp * sy;
+	
+	W = (f32) (cr * cpcy + sr * spsy);
+	X = (f32) (sr * cpcy - cr * spsy);
+	Y = (f32) (cr * spcy + sr * cpsy);
+	Z = (f32) (cr * cpsy - sr * spcy);	
 
 	return normalize();
 }
@@ -305,6 +298,23 @@ void Quaternion::toAngleAxis(f32& angle, Vector3DF& axis) const
 // Convert quaternion rotation to Euler (XYZ) angles
 inline void Quaternion::toEuler(Vector3DF& euler) const
 {
+	/*
+	// roll (x-axis rotation)
+	double sr_cp = 2 * (W * X + Y * Z);
+	double cr_cp = 1 - 2 * (X * X + Y * Y);
+	euler.x = RADtoDEG * atan2(sr_cp, cr_cp);
+
+	// pitch (y-axis rotation)
+	double sp = std::sqrt(1 + 2 * (W * Y - X * Z));
+	double cp = std::sqrt(1 - 2 * (W * Y - X * Z));
+	euler.y = RADtoDEG * (2 * atan2(sp, cp) - PI / 2);
+
+	// yaw (z-axis rotation)
+	double sy_cp = 2 * (W * Z + X * Y);
+	double cy_cp = 1 - 2 * (Y * Y + Z * Z);
+	euler.z = RADtoDEG * atan2(sy_cp, cy_cp) ;
+	*/
+
 	const f64 test = (X * Y + Z * W);
 
 	if (fequal(test, 0.5, 0.000001))
@@ -324,14 +334,13 @@ inline void Quaternion::toEuler(Vector3DF& euler) const
 	}
 	else
 	{
-		euler.x = (f32)atan2(2.0 * (X * W - Y * Z), 1.0 - 2.0f * (X * X + Z * Z));	// roll = rotation about x-axis (bank)
-		euler.y = (f32)asin(2.0 * test);								// pitch = rotation about y-axis (attitude)
-		euler.z = (f32)atan2(2.0 * (X * Z - Y * W), 1.0 - 2.0f * (Y * Y + Z * Z));	// yaw = rotation about z-axis (heading)
+		euler.x = (f32) atan2(2.0 * (X * W - Y * Z), 1.0 - 2.0f * (X * X + Z * Z));	// roll = rotation about x-axis (bank)
+		euler.y = (f32) asin(2.0 * test);																						// pitch = rotation about y-axis (attitude)
+		euler.z = (f32) atan2(2.0 * (X * Z - Y * W), 1.0 - 2.0f * (Y * Y + Z * Z));	// yaw = rotation about z-axis (heading)
 	}
-
 	euler.x *= RADtoDEG;
 	euler.y *= RADtoDEG;
-	euler.z *= RADtoDEG;
+	euler.z *= RADtoDEG; 
 }
 
 // Rotate a vector using quaternion

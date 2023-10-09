@@ -1,15 +1,11 @@
 //--------------------------------------------------------
 // JUST MATH:
-// Cell membrane simulation
+// Flockv v2
 // 
-// Demonstrates a cellular membrane simulation using the physics of colliding circles.
-// Cellulose is represented as a collection of plant cells (circles).
-// Cells are attracted to a membrane circle, which can be adjusted in size (<,> keys)
-// Cells may also respond to temperature ([,] and t keys), with cells migrating across the temperature boundary.
-// Rotation may also be induced in the cells (-,+ keys)
-// 
+// Rama Hoetzlein, 2023
+//
 //--------------------------------------------------------------------------------
-// Copyright 2019-2022 (c) Quanta Sciences, Rama Hoetzlein, ramakarl.com
+// Copyright 2019-2023 (c) Quanta Sciences, Rama Hoetzlein, ramakarl.com
 //
 // * Derivative works may append the above copyright notice but should not remove or modify earlier notices.
 //
@@ -27,17 +23,20 @@
 //
 
 #include <time.h>
-#include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
+#include "main.h"					// window system 
+#include "nv_gui.h"				// gui system
 #include "quaternion.h"
+#include "datax.h"
 #include "mersenne.h"
 
-struct Cell {
-	Vector3DF	pos;
-	Vector3DF	vel;
-	Vector3DF	force;
-	float		radius;
-	float		temp;
+struct Bird {
+
+	Vector3DF		pos, vel, accel;
+	Vector3DF		lift, thrust, drag, force;	
+	Quaternion	orient, ctrl;
+	Vector3DF		target;
+	float				speed;	
+	float				pitch_adv, power, aoa;
 };
 
 class Sample : public Application {
@@ -51,38 +50,57 @@ public:
 	virtual void mouse (AppEnum button, AppEnum state, int mods, int x, int y);	
 	virtual void mousewheel(int delta);
 	virtual void shutdown();
-	
-	void		CreateCells();
-	void		SimCells();
-	void		DivideCells();
-	void		InvertTemp();
 
-	void		drawCells();
+	void			AddBird ( Vector3DF pos, Vector3DF vel, Vector3DF target, float power );
 
-	void		drawGrid();
+	void			Reset ();
+	void			Advance ();	
+	void			CameraToBird ( int b );
+	void			CameraToCockpit( int b );
+	void			drawGrid( Vector4DF clr );
 
-	float		m_rotate;
-	float		m_stable_radius;
-	float		m_temp_radius;
-	bool		m_temp;
+	int				m_num_birds;
+	DataX			m_Birds;
 
-	std::vector<Cell>	m_cells;
+	float			m_DT;
+	Vector3DF	m_wind;
+	Mersenne  m_rnd;	
 
-	Vector3DF	m_center;
 
-	Mersenne	mt;
-	float		m_time;
-	bool		m_run;
+	float			m_time, m_max_speed;
+	bool			m_run, m_flightcam;
 	Camera3D*	m_cam;
-	int			mouse_down;
+	int				mouse_down;
+	int			  m_bird_sel;
+	bool		  m_cockpit_view;
 };
+
 Sample obj;
+
+void Sample::AddBird ( Vector3DF pos, Vector3DF vel, Vector3DF target, float power )
+{
+	Bird b;
+	b.pos = pos;
+	b.vel = vel;	
+	b.target = target;
+	b.orient.fromDirectionAndRoll ( Vector3DF(0,0,1), b.target.x );
+	b.power = power;
+	b.pitch_adv = 0;
+	b.accel.Set(0,0,0);
+	
+	int ndx = m_Birds.AddElem (0);
+	m_Birds.SetElem (0, ndx, &b );
+}
 
 
 bool Sample::init ()
 {
-	int w = getWidth(), h = getHeight();			// window width & height
+	int w = getWidth(), h = getHeight();			// window width &f height
 	m_run = true;
+	m_flightcam = true;
+	m_bird_sel = 0;
+	m_cockpit_view = false;
+	m_rnd.seed (12);
 
 	addSearchPath ( ASSET_PATH );
 	init2D ( "arial" );
@@ -90,281 +108,287 @@ bool Sample::init ()
 	setText ( 16, 1 );		
 	
 	m_cam = new Camera3D;
-	m_cam->setOrbit ( Vector3DF(0, 90,0), Vector3DF(0,0,0), 100, 1 );
+	m_cam->setFov ( 120 );
+	m_cam->setNearFar ( 1.0, 100000 );
+	m_cam->SetOrbit ( Vector3DF(-30,30,0), Vector3DF(0,5,0), 300, 1 );
 
-	mt.seed(164);
+	// Initialize birds
+	// * birds are placed into a DataX structure to allow
+	// for easy sharing between CPU and GPU
+	
+	m_num_birds = 100;
 
-	m_rotate = 0;
-	m_stable_radius = 5;
-	m_temp_radius = 5;
-	m_temp = false;
-	m_center.Set(0,0,0);
+  m_Birds.AddBuffer ( 0, "bird",		sizeof(Bird),	m_num_birds, DT_CPU | DT_CUMEM | DT_GLVBO );		// cuda-opengl interop
 
-	CreateCells();
+  Reset ();
 
-	m_time = 0;
-
+	m_max_speed = 500.0;		// top speed, 500 m/s = 1800 kph = 1118 mph
+	m_DT = 0.002;
+	m_wind.Set (-50, 0, 0);
 
 	return true;
 }
 
-void Sample::CreateCells()
+void Sample::Reset ()
 {
-	float ring[4];
-	float r[4];
-	float ang, pct;
-	int cnt;
-	Cell c;
-	ring[0] = 7.0;
-	ring[1] = 5.0;
-	ring[2] = 3.0;
-	
-	//r[0] = 1.2; r[1] = 1.2; r[2] = 1.2;			pct = 0.6;
-	//r[0] = 1.2; r[1] = 1.1; r[2] = 0.9;			pct = 0.5;
-	//r[0] = 0.3; r[1] = 0.4; r[2] = 0.6;				pct = 0.7;
-	r[0] = 0.03; r[1] = 0.05; r[2] = 0.3;			pct = 0.95;
+	Vector3DF pos, vel;
 
-	c.pos.Set(0, 0, 0);
-	c.vel.Set(0, 0, 0);
-	c.force.Set(0, 0, 0);
-	c.radius = ring[0];
-	c.temp = 0;
-	//m_cells.push_back(c);
+	m_Birds.ClearBuffer (0);
 
-	
-	for (int g=0; g < 3; g++) {
-		cnt = int(2.0 * PI * ring[g] / (2 * r[g])) * pct;    //- (g+2)*4;
-
-		for (int i=0; i < cnt; i++) {	
-			ang = (i+g*0.3)*360.0/cnt;
-			c.pos.Set( cos(ang*DEGtoRAD)*ring[g], 0, sin(ang*DEGtoRAD)*ring[g] );
-			c.pos += mt.randV3(-1,1)*0.1f;
-			c.pos.y = 0;
-		
-			c.vel.Set(0,0,0);
-			c.force.Set(0, 0, 0);
-			c.radius = r[g];
-			c.temp = 1; //-g;
-			m_cells.push_back ( c );
-		}
+	for (int n=0; n < m_num_birds; n++ ) {
+		pos.x = m_rnd.randF( -50, 50 );
+		pos.y = m_rnd.randF(  50, 100 );
+		pos.z = m_rnd.randF( -50, 50 );
+		vel = m_rnd.randV3( -10, 10 );
+		AddBird ( pos, vel, Vector3DF(0, 0, 90), 3);
 	}
 }
 
-#include "geom_helper.h"
-
-void Sample::SimCells()
+void Sample::drawGrid( Vector4DF clr )
 {
-	float dt = 0.005;
-	int coll;
+	Vector3DF a;
+	float o = 0.02;
 
-	float dst, r, v;
-	float a1, a2, a3, p;
-	Vector3DF n, f1, f2, ipos;
-
-	// collision detection
-	for (int i=0; i < m_cells.size(); i++) {
-
-		// target position
-		ipos = m_cells[i].pos + m_cells[i].vel * dt;	 // advance by velocity
-		
-		// check for collisions
-		coll = 0;
-		for (int j=0; j < m_cells.size(); j++) {
-
-			if ( i==j ) continue;
-			n = ipos - m_cells[j].pos;
-			r = m_cells[i].radius + m_cells[j].radius; 
-			dst = n.x*n.x + n.z*n.z;
-
-			if ( dst > 0 && dst < r*r ) {
-				coll++;
-				dst = r-sqrt(dst);						// dst = depth of collision
-				n.Normalize();
-
-				// reposition at contact point (and use as new test point)
-				ipos = m_cells[j].pos + n * (r+0.001f);	
-							
-				// note: ideally, find the point along vel where i just touches j, not along the vector n. 
-				// using line-circle intersection, where the circle is size R (r1+r2) centered at j.
-				
-				/* Vector3DF v = m_cells[i].vel; v.Normalize();
-				double cdn = v.Dot ( m_cells[j].pos - m_cells[i].pos );
-				double dd = m_cells[j].pos.Dot ( m_cells[j].pos );
-				double cc = m_cells[i].pos.Dot ( m_cells[i].pos );
-				double rr = double(r)*r;
-				float t1 = cdn - sqrt (cdn*cdn - (dd + cc - rr - 2*m_cells[i].pos.Dot(m_cells[j].pos) ) );
-				float t2 = cdn + sqrt (cdn*cdn - (dd + cc - rr - 2*m_cells[i].pos.Dot(m_cells[j].pos) ) );
-				ipos = m_cells[i].pos + v * (std::min(t1,t2) - 0.0001f);
-				n = ipos - m_cells[j].pos; n.Normalize(); */
-
-				dst = 0.1 + 4.0 * dst * dst;								
-
-				a1 = m_cells[i].vel.Dot ( n );			// reflect around  normal (elastic)
-				a2 = m_cells[j].vel.Dot ( n );
-				a3 = (m_cells[i].vel.Dot(m_cells[j].vel) - 1) * 0.3;	// directional avoidance
-				p = (a3+2*(a1-a2)) / r;					
-				p = clamp(p, -20, 20);
-				
-				f1 = n * m_cells[j].radius * -p * dst;
-				f2 = n * m_cells[i].radius * p * dst;
-				m_cells[i].force += f1 / dt;
-				m_cells[j].force += f2 / dt; 
+	// center section
+	o = -0.02;			// offset
+	for (int n=-5000; n <= 5000; n += 50 ) {
+		drawLine3D ( Vector3DF(n, o,-5000), Vector3DF(n, o, 5000), Vector4DF(1,1,1,0.3) );
+		drawLine3D ( Vector3DF(-5000, o, n), Vector3DF(5000, o, n), Vector4DF(1,1,1,0.3) );
+	}
+	
+	// large sections
+	for (int j=-5; j <=5 ; j++) {
+		for (int k=-5; k <=5; k++) {
+			a = Vector3DF(j, 0, k) * Vector3DF(5000,0,5000);
+			if (j==0 && k==0) continue;
+			for (int n=0; n <= 5000; n+= 200) {
+				drawLine3D ( Vector3DF(a.x,   o, a.z+n), Vector3DF(a.x+5000, o, a.z+n), Vector4DF(1,1,1,0.2) );
+				drawLine3D ( Vector3DF(a.x+n,-o, a.z  ), Vector3DF(a.x+n,    o, a.z+5000), Vector4DF(1,1,1,0.2) );
 			}
 		}
-		// simplified position based dynamics:
-		//   0 collisions => advance by velocity
-		// 1,2 collisions => reposition at contact point
-		//  3+ collisions => best not to move
-		if ( coll <= 2 ) {
-			m_cells[i].pos = ipos;		
-		}
-		//dbgprintf("%f %f\n", p, dst);
 	}
 
-	// advance
-	Vector3DF crs;
-	Vector3DF ctr (0,0,0);
+}
 
-	for (int i = 0; i < m_cells.size(); i++) {
-		
-		n = m_cells[i].pos - m_center; 
-		r = n.Length();
-		n *= 1.0/r;
+float circleDelta (float b, float a)
+{
+	return fmin ( b-a, 360+a-b );
+}
 
-		// vortex		
-		crs = crs.Cross ( n, Vector3DF(0,1,0) );
-		//v = (int(m_time/200.0) % 2)==0 ? 1.0f : -1.0f;		//-- oscillating rotation
-		m_cells[i].force += crs * r * m_rotate;
-		
-		// temperature
-		if ( m_cells[i].temp != 0 && m_temp) {
-			if (r > m_temp_radius + 0.5) m_cells[i].temp -= 0.021;
-			if (r < m_temp_radius - 0.5) m_cells[i].temp += 0.021;
-			if ( m_cells[i].temp < -1 ) m_cells[i].temp = -1;
-			if (m_cells[i].temp > 1) m_cells[i].temp = 1;
-		}
+void Sample::Advance ()
+{
+	Vector3DF fwd, up, right;
+	Vector3DF force, torque, vaxis;
+	Quaternion ctrl_pitch;
+	float airflow, dynamic_pressure;
+	float m_LiftFactor = 0.002;
+	float m_DragFactor = 0.002;
+	float mass = 0.1;							// body mass (kg)
+	float CL, L;
+	Quaternion ctrlq, tq;
+	Vector3DF angs;
+	Quaternion angvel;
 
-		// convection (inward & outward)
-		r -= m_stable_radius;
-		if ( m_temp ) m_cells[i].force += n * (r * r) * 1.5f * m_cells[i].temp * (0.5f-m_cells[i].radius);
-		if ( m_stable_radius > 0) m_cells[i].force += n * (r * r * r) * -0.5f;
 
-		// update velocity
-		m_cells[i].vel += m_cells[i].force * dt;		
-		m_cells[i].force = 0;	
+	Bird* b;
+	for (int n=0; n < m_Birds.GetNumElem(0); n++) {
 
-		// velocity limiter
-		v = m_cells[i].vel.Length();
-		if ( v > 3.0 ) m_cells[i].vel *= 0.96f;
+		b = (Bird*) m_Birds.GetElem(0, n);
+
+
+		// Body orientation
+		fwd = Vector3DF(1,0,0) * b->orient;			// X-axis is body forward
+		up  = Vector3DF(0,1,0) * b->orient;			// Y-axis is body up
+		right = Vector3DF(0,0,1) * b->orient;		// Z-axis is body right
+
+		// Direction of motion
+		b->speed = b->vel.Length();
+		vaxis = b->vel / b->speed;	
+		if ( b->speed < 0 ) b->speed =  0;		// planes dont go in reverse
+		if ( b->speed > m_max_speed ) b->speed = m_max_speed;
+		if ( b->speed==0) vaxis = fwd;
 			
-		ctr += m_cells[i].pos;
-	}
-	ctr *= 1.0f/m_cells.size();
+		b->orient.toEuler ( angs );				
+		angs.z = fmod (angs.z, 360.0 );
 
-	m_center = ctr;
-	m_center.y = 0;
-}
+		float reaction_delay = 0.00002;
 
-void Sample::InvertTemp()
-{
-	for (int i = 0; i < m_cells.size(); i++) 
-		 m_cells[i].temp = - m_cells[i].temp;
-}
+		// Banking - correlate banking with yaw
+		b->target.x = circleDelta(b->target.z, angs.z);
 
-void Sample::DivideCells ()
-{
-	// advance
-	float a;
-	Vector3DF v;
-	Cell c;
-	int cnt = m_cells.size();
-	for (int i = 0; i < cnt; i++) {
-		v = m_cells[i].vel;	v.Normalize();
+		// Roll - Control input
+		// - orient the body by roll
+		ctrlq.fromAngleAxis ( (b->target.x - angs.x) * reaction_delay, Vector3DF(1,0,0) * b->orient );
+		b->orient *= ctrlq;	b->orient.normalize();
 		
-		if ( m_cells[i].radius >= 1 ) {
-			a = m_cells[i].radius*0.5;
-			c.pos =				m_cells[i].pos + v * a;
-			m_cells[i].pos =	m_cells[i].pos + v * -a;
+		// Pitch & Yaw - Control inputs
+		// - apply 'torque' by rotating the velocity vector based on pitch & yaw inputs		
+		ctrlq.fromAngleAxis ( circleDelta(b->target.z, angs.z) * reaction_delay, Vector3DF(0,-1,0) * b->orient );
+		vaxis *= ctrlq; vaxis.Normalize();	
+		ctrlq.fromAngleAxis ( (b->target.y - angs.y) * reaction_delay, Vector3DF(0,0,1) * b->orient );
+		vaxis *= ctrlq; vaxis.Normalize();	
 
-			c.radius =			m_cells[i].radius * 0.6;		// half radius
-			m_cells[i].radius = m_cells[i].radius * 0.6;
+		b->vel = vaxis * b->speed;
+
+		b->force = 0;
+		torque = 0;
+
+		// Dynamic pressure		
+		airflow = b->speed + m_wind.Dot ( fwd*-1.0f );		// airflow = aircraft speed + wind over wing
+		float p = 1.225;											// air density, kg/m^3
+		float dynamic_pressure = 0.5f * p * airflow * airflow;
+
+		// Lift force
+		b->aoa = acos( fwd.Dot( vaxis ) )*RADtoDEG + 1;				// angle-of-attack = angle between velocity and body forward		
+ 		if (isnan(b->aoa)) b->aoa = 1;
+		CL = sin( b->aoa * 0.2);					// CL = coeff of lift, approximate CL curve with sin
+		L = CL * dynamic_pressure * m_LiftFactor * 0.5;		// lift equation. L = CL (1/2 p v^2) A
+		b->lift = up * L;
+		b->force += b->lift;	
+
+		// Drag force	
+		b->drag = vaxis * dynamic_pressure * m_DragFactor * -1.0f;			// drag equation. D = Cd (1/2 p v^2) A
+		b->force += b->drag; 
+
+		// Thrust force
+		b->thrust = fwd * b->power;
+		b->force += b->thrust;
 	
-			c.vel = v;
-			c.force = 0;
+		// Integrate position		
+		b->accel = b->force / mass;				// body forces	
+		b->accel += Vector3DF(0,-9.8,0);	// gravity
+		b->accel += m_wind * p * 0.1f;		// wind force. Fw = w^2 p * A, where w=wind speed, p=air density, A=frontal area
+	
+		b->pos += b->vel * m_DT;
 
-			m_cells.push_back(c);
+
+		// Level flight
+		b->target.y = 0;
+		
+		// Ground avoidance
+		if ( b->pos.y < 10 && fwd.y < 0) {			
+			b->target.y = 20;
 		}
+
+		// Ground condition
+		if (b->pos.y <= 0.00001 ) { 
+			// Ground forces
+			b->pos.y = 0; b->vel.y = 0; 
+			b->accel += Vector3DF(0,9.8,0);	// ground force (upward)
+			b->vel *= 0.9999;				// ground friction
+			b->orient.fromDirectionAndRoll ( Vector3DF(fwd.x, 0, fwd.z), 0 );	// zero pitch & roll			
+		} 
+	
+		// Integrate velocity
+		b->vel += b->accel * m_DT;		
+
+		vaxis = b->vel;	vaxis.Normalize ();
+
+		// Update Orientation
+		// Directional stability: airplane will typically reorient toward the velocity vector
+		//  see: https://en.wikipedia.org/wiki/Directional_stability
+		// this is an assumption yet much simpler/faster than integrating body orientation
+		// this way we dont need torque, angular vel, or rotational inertia.
+		// stalls are possible but not flat spins or 3D flying		
+		angvel.fromRotationFromTo ( fwd, vaxis, .5 );
+		if ( !isnan(angvel.X) ) {
+			b->orient *= angvel;
+			b->orient.normalize();			
+		}
+
 	}
 }
 
-void Sample::drawCells()
+void Sample::CameraToBird ( int n )
 {
-	Vector3DF p;
-	float r, t;
-	Vector4DF clr;
+	Bird* b = (Bird*) m_Birds.GetElem(0, n);
 
-	drawCircle3D ( m_center, m_center+Vector3DF(0,1,0), m_stable_radius, Vector4DF(0.0,0.5,0.0,1));
-	if ( m_temp ) {
-		drawCircle3D(m_center, m_center + Vector3DF(0, 1, 0), m_temp_radius+ 0.5, Vector4DF(0.0,0.0,0.5, 1));
-		drawCircle3D(m_center, m_center + Vector3DF(0, 1, 0), m_temp_radius- 0.5, Vector4DF(0.5, 0.0, 0.0, 1));
-	}
-	dbgprintf ( "%f %f %f\n", m_center.x, m_center.y, m_center.z );
 
-	for (int n=0; n < m_cells.size(); n++) {
-		p = m_cells[n].pos;
-		r = m_cells[n].radius;
-		t = m_cells[n].temp;
-		clr = ( t == 0 || m_temp==false ) ? Vector4DF(1, 1, 1, 1) : Vector4DF( (t+1)*0.5, 0, 1-(t+1)*0.5, 1);
-		drawCircle3D( p, p+Vector3DF(0,1,0), r, clr);
-	}
+	m_cam->SetOrbit ( m_cam->getAng(), b->pos, m_cam->getOrbitDist(), m_cam->getDolly() );
 
 }
 
-void Sample::drawGrid()
+
+void Sample::CameraToCockpit(int n )
 {
-	float o	 = -0.05;		// offset
-	for (int n=-100; n <= 100; n+=10 ) {
-		drawLine3D ( n, o,-100, n, o,100, .5,.5,.5, .3);
-		drawLine3D (-100, o, n, 100, o, n, .5, .5, .5, .3);
-	}
-}
+	Bird* b = (Bird*) m_Birds.GetElem(0, n);
 
+	// View direction	
+	Vector3DF fwd = b->vel; fwd.Normalize();
+	Vector3DF angs;
+	b->orient.toEuler ( angs );
+
+	// Set eye level above centerline
+	Vector3DF p = b->pos + Vector3DF(0,2,0);	  
+	
+	m_cam->setDirection ( p, p + fwd, -angs.x );
+}
 
 void Sample::display ()
 {	
+	char msg[2048];
+	Vector3DF x,y,z;
 	Vector3DF pnt;
 	Vector4DF clr;
-
 	int w = getWidth();
 	int h = getHeight();
+		
+	Bird* b;
+
+	if (m_run) { 		
+		Advance ();
+	}	
+
+	if (m_cockpit_view)
+		CameraToCockpit ( m_bird_sel);
+	else	
+		CameraToBird ( m_bird_sel );
 
 	clearGL();
-	start2D();
-		setview2D(getWidth(), getHeight());
-		drawText(10, 20, "Input:", 1,1,1,1);
-		drawText(10, 65, "  -, +     Induce rotation left/right", 1,1,1,1);
-		drawText(10, 35, "  <, >     Increase/decrease membrane radius", 1,1,1,1);
-		drawText(10, 50, "  [, ]     Increase/decrease temperature radius", 1,1,1,1);				
-		drawText(10, 80, "  t        Turn temperature on/off", 1,1,1,1);
-	end2D();
+	start2D ();
+	setview2D ( w, h );
 
-	if (m_run) {
-		SimCells ();
-		m_time += .1;
-	}
+	b =  (Bird*) m_Birds.GetElem(0, m_bird_sel);
+	sprintf ( msg, "%f %f %f\n", b->target.x, b->target.y, b->target.z );
+	drawText ( 10, 10, msg, 1,1,1,1);
+
+
 
 	start3D(m_cam);
-		drawGrid();
-	
-		drawCells();
 
+		// Draw ground
+		drawGrid( (m_flightcam) ? Vector4DF(1,1,1,1) : Vector4DF(0.2,0.2,0.2,1) );
+
+
+		for (int n=0; n < m_Birds.GetNumElem(0); n++) {
+
+			b = (Bird*) m_Birds.GetElem(0, n);
+		
+			x = Vector3DF(1,0,0) * b->orient;
+			y = Vector3DF(0,1,0) * b->orient;
+			z = Vector3DF(0,0,1) * b->orient;
+
+			drawLine3D ( b->pos-z,	b->pos+z,					Vector4DF(1,1,1,0.4) );			// wings
+			drawLine3D ( b->pos,	  b->pos+y,					Vector4DF(1,1,0,  1) );			// up
+			drawLine3D ( b->pos,	  b->pos+x,					Vector4DF(1,1,0,  1) );			// fwd
+			drawLine3D ( b->pos,		b->pos +b->vel*0.1f,		Vector4DF(1,1,1,  1) );			// velocity
+			drawLine3D ( b->pos,		b->pos +b->lift + x*0.1f,		Vector4DF(0,1,0,  1) );			// lift (green)
+			drawLine3D ( b->pos,		b->pos+b->thrust, Vector4DF(1,0,0,  1) );			// thrust (red)
+			drawLine3D ( b->pos,		b->pos+b->drag,		Vector4DF(1,0,1,  1) );			
+			drawLine3D ( b->pos,		b->pos+b->force,	Vector4DF(0,1,1,  1) );		
+
+			/*x = Vector3DF(1,0,0) * b->ctrl;			
+			z = Vector3DF(0,0,1) * b->ctrl;			
+			drawLine3D ( b->pos,	  b->pos+x,					Vector4DF(0,1,1,  1) );			// ctrl fwd
+			drawLine3D ( b->pos-z,	b->pos+z,					Vector4DF(0,1,1,  1) );	*/
+
+		}
 	end3D();
 
 	draw3D ();
 	draw2D (); 	
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
-
 
 
 void Sample::mouse(AppEnum button, AppEnum state, int mods, int x, int y)
@@ -400,9 +424,9 @@ void Sample::motion (AppEnum button, int x, int y, int dx, int dy)
 	case AppEnum::BUTTON_RIGHT: {
 		// Adjust orbit angles
 		Vector3DF angs = m_cam->getAng();
-		angs.x += dx*0.2f*fine;
-		angs.y -= dy*0.2f*fine;				
-		m_cam->setOrbit ( angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly() );
+		angs.x += dx*0.2f;
+		angs.y -= dy*0.2f;				
+		m_cam->SetOrbit ( angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly() );
 		} break;	
 
 	}
@@ -416,8 +440,8 @@ void Sample::mousewheel(int delta)
 	float dolly = m_cam->getDolly();
 	float zoom = (dist - dolly) * 0.001f;
 	dist -= delta * zoom * zoomamt;
-
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);		
+	
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);		
 }
 
 
@@ -425,17 +449,21 @@ void Sample::mousewheel(int delta)
 
 void Sample::keyboard(int keycode, AppEnum action, int mods, int x, int y)
 {
-	if (action == AppEnum::BUTTON_RELEASE) return;
+	if (action == AppEnum::BUTTON_RELEASE) 
+		return;
 
 	switch ( keycode ) {
-	case ' ':	m_run = !m_run;	break;
-	case ',': case '<':	m_stable_radius -= 0.1; break;
-	case '.': case '>':	m_stable_radius += 0.1; break;
-	case '[': case '{':	m_temp_radius -= 0.1; break;
-	case ']': case '}':	m_temp_radius += 0.1; break;
-	case '-': case '_':	m_rotate -= 0.05; break;
-	case '=': case '+':	m_rotate += 0.05; break;
-	case 't':	m_temp = !m_temp;	break;
+  case 'c': m_cockpit_view = !m_cockpit_view; break;
+	case 'r': Reset(); break;
+	case ' ':	m_run = !m_run;	break;	
+	case 'z': 
+		m_bird_sel--; 
+		if (m_bird_sel < 0) m_bird_sel = 0; 
+		break;
+	case 'x':
+		m_bird_sel++; 
+		if (m_bird_sel > m_Birds.GetNumElem(0)) m_bird_sel = m_Birds.GetNumElem(0)-1;
+		break;
 	};
 }
 
@@ -445,8 +473,7 @@ void Sample::reshape (int w, int h)
 	setview2D ( w, h );
 
 	m_cam->setAspect(float(w) / float(h));
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
-	m_cam->updateMatricies();
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());	
 		
 	appPostRedisplay();	
 }
@@ -454,10 +481,11 @@ void Sample::reshape (int w, int h)
 void Sample::startup ()
 {
 	int w = 1900, h = 1000;
-	appStart ( "Cell simulation", "Cell simulation", w, h, 4, 2, 16, false );
+	appStart ( "Flock v2", "Flock v2", w, h, 4, 2, 16, false );
 }
 
 void Sample::shutdown()
 {
 }
+
 
