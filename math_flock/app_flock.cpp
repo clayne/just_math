@@ -114,6 +114,8 @@ public:
 	int				mouse_down;
 	int			  m_bird_sel;
 	bool		  m_cockpit_view;
+	bool			m_draw_sphere;
+	bool		  m_draw_grid;
 
 	std::vector<Vector4DF>  m_mark;
 };
@@ -148,18 +150,20 @@ void Sample::Reset ()
 	m_Birds.AddBuffer ( FGNDX,  "gndx",		sizeof(uint),	numPoints, DT_CPU | DT_CUMEM );		
 
 	for (int n=0; n < m_num_birds; n++ ) {
+		
 		pos.x = m_rnd.randF( -50, 50 );
 		pos.y = m_rnd.randF(  50, 200 );
 		pos.z = m_rnd.randF( -50, 50 );
-		vel = m_rnd.randV3( -40, 40 );
+		vel = m_rnd.randV3( -20, 20 );
+		
 		h = m_rnd.randF(-180, 180);		
-		AddBird ( pos, vel, Vector3DF(0, 0, h), 2);
+		AddBird ( pos, vel, Vector3DF(0, 0, h), 2); 
 		
 		/*pos.x = (n % 2) ? -50 : 50;
 		h = (n % 2) ? 0 : 180;
 		vel.y = 0;
 		vel.z = 0;
-		AddBird ( pos, vel, Vector3DF(0, 0, h), 2);		*/
+		AddBird ( pos, vel, Vector3DF(0, 0, h), 2);		 */
 	}
 }
 
@@ -361,8 +365,9 @@ void Sample::FindNeighbors ()
 
 	Bird *bi, *bj;
 	
-	float fov = cos ( 130 * DEGtoRAD );
-	float ang;
+	float fov = 160;
+
+	float ang, birdang;
 
 	m_mark.clear ();	
 
@@ -412,11 +417,13 @@ void Sample::FindNeighbors ()
 							// confirm bird is within forward field-of-view
 							diri = bi->vel;			diri.Normalize();
 							dirj = posj - posi; dirj.Normalize();
-							if ( diri.Dot ( dirj ) > fov ) {
+							birdang = acos ( diri.Dot (dirj) ) * RADtoDEG; 
+
+							if ( birdang < fov ) {
 
 								// check if nearest 
 								dsq = sqrt(dsq);
-								if ( dsq < nearest ) {
+								if ( dsq < nearest && birdang < fov/2.0f ) {
 									nearest = dsq;
 									bi->near_j = j;
 								}
@@ -446,7 +453,7 @@ void Sample::FindNeighbors ()
 
 float circleDelta (float b, float a)
 {	
-	return fmod( fmin ( b-a, 360+b-a ), 180 );
+	return fmin ( b-a, 360+b-a );
 }
 
 void Sample::Advance ()
@@ -456,10 +463,13 @@ void Sample::Advance ()
 	Vector3DF diri, dirj;
 	Quaternion ctrl_pitch;
 	float airflow, dynamic_pressure;
-	float m_LiftFactor = 0.001;
-	float m_DragFactor = 0.005;
-	float mass = 0.2;							// body mass (kg)
-	float CL, L, dist;
+
+	float m_LiftFactor = 0.050;
+	float m_DragFactor = 0.010;
+
+	float mass = 0.1;							// body mass (kg)
+
+	float CL, L, dist, cd, vd;
 	float pitch, yaw;
 	Quaternion ctrlq, tq;
 	Vector3DF angs;
@@ -475,7 +485,7 @@ void Sample::Advance ()
 		b = (Bird*) m_Birds.GetElem(0, n);
 		b->clr.Set(0,1,1,1);
 
-		if ( b->nbr_cnt <= 1 ) continue;
+		if ( b->nbr_cnt == 0 ) continue;
 		if ( b->pos.y < 60 ) continue;
 
 		diri = b->vel;			diri.Normalize();
@@ -487,28 +497,32 @@ void Sample::Advance ()
 
 		if ( dist < safe_radius ) {		
 	    
-			float vdelta = (b->vel.Length() - b->ave_vel.Length());
-			//float vdelta = (b->vel.Length() - bj->vel.Length()) * 5.0;
-			b->power = 10 - vdelta;
-			if (b->power < -40) b->power = -40;
-			if (b->power > 20) b->power = 20;
+			// Power avoidance
+			//float vdelta = (b->vel.Length() - b->ave_vel.Length()) * 5;
+			vd = (b->vel.Length() - bj->vel.Length()) * 4;
 
-			if ( dist < 1 ) {
-				float yaw = b->vel.Dot ( bj->vel );
-				if (yaw < 0 ) 
-					b->target.z += yaw  ;
-			}
-			
-			/*if ( dist < 2.0 ) {
-				b->power = -40;
-				dirj = (dirj/dist) * b->orient.inverse();							
-				yaw = atan2( dirj.z, dirj.x )*RADtoDEG;
-				b->target.z = fmod( b->target.z + 180, 180);
-				pitch = asin( dirj.y )*RADtoDEG;						
-				b->target.y -= pitch * 0.01;		
-				b->clr.Set(1,0,0,1);
-			}*/
+			float np = 8 - vd * vd * (vd > 0 ? 1: - 1);
+			float dp = np - b->power;
+			b->power = np;
+
+			if (b->power < -40) b->power = -40;
+			if (b->power > 40) b->power = 40;
+
+			// Angular avoidance
+			dirj = (dirj/dist) * b->orient.inverse();							
+			yaw = atan2( dirj.z, dirj.x )*RADtoDEG;
+			pitch = asin( dirj.y )*RADtoDEG;						
+			b->target.z -= yaw * 0.05 / dist;
+			b->target.y -= pitch * 0.05 / dist;				
 		}
+
+		// Dirctional shift		
+		/*vd = b->vel.Length() / 50.0f;
+		if ( vd < 0.4 ) {			
+			ctrlq.fromAngleAxis ( 0.5, Vector3DF(0,-1,0) * b->orient );
+			b->orient *= ctrlq; b->orient.normalize();
+			b->clr.Set(1,1,0,1);
+		} */
 
 	  // Rule 2. Alignment - orient toward average direction		
 		dirj = b->ave_vel;
@@ -516,8 +530,8 @@ void Sample::Advance ()
 		dirj *= b->orient.inverse();		// using inverse orient for world-to-local xform		
 		yaw = atan2( dirj.z, dirj.x )*RADtoDEG;
 		pitch = asin( dirj.y )*RADtoDEG;
-		b->target.z += yaw * 0.002;
-		b->target.y += pitch * 0.002;		
+		b->target.z += yaw * 0.08;
+		b->target.y += pitch * 0.08;		
 
 		// Rule 3. Cohesion - steer toward neighbor centroid
 		dirj = b->ave_pos - b->pos;
@@ -525,8 +539,9 @@ void Sample::Advance ()
 		dirj *= b->orient.inverse();		// using inverse orient for world-to-local xform		
 		yaw = atan2( dirj.z, dirj.x )*RADtoDEG;
 		pitch = asin( dirj.y )*RADtoDEG;
-		b->target.z += yaw * 0.002;
-		b->target.y += pitch * 0.002;		
+		b->target.z += yaw * 0.003;
+		b->target.y += pitch * 0.003;		
+		
 	}
 	
 
@@ -536,6 +551,10 @@ void Sample::Advance ()
 
 		b = (Bird*) m_Birds.GetElem(0, n);
 
+		if (n==m_bird_sel)  {
+			bool stop=true;
+		}
+
 		// Body orientation
 		fwd = Vector3DF(1,0,0) * b->orient;			// X-axis is body forward
 		up  = Vector3DF(0,1,0) * b->orient;			// Y-axis is body up
@@ -544,14 +563,22 @@ void Sample::Advance ()
 		// Direction of motion
 		b->speed = b->vel.Length();
 		vaxis = b->vel / b->speed;	
-		if ( b->speed < 5 ) b->speed = 5;		// planes dont go in reverse
+		if ( b->speed < 20 ) b->speed = 20;		// planes dont go in reverse
 		if ( b->speed > m_max_speed ) b->speed = m_max_speed;
 		if ( b->speed==0) vaxis = fwd;
 			
-		b->orient.toEuler ( angs );				
-		angs.z = fmod (angs.z, 360.0 );
+		b->orient.toEuler ( angs );			
 
-		float reaction_delay = 0.00008;
+		// Target corrections
+		angs.z = fmod (angs.z, 180.0 );												
+		b->target.z = fmod ( b->target.z, 180 );										// yaw -180/180
+		b->target.x = circleDelta(b->target.z, angs.z) * 0.5;				// banking
+		b->target.y *= 0.999;																				// level out
+		if ( b->target.y > 60 ) b->target.y = 60;
+		if ( b->target.y < -60 ) b->target.y = -60;
+		if ( fabs(b->target.y) < 0.0001) b->target.y = 0;
+		
+		float reaction_delay = 0.0005;
 
 		// Roll - Control input
 		// - orient the body by roll
@@ -602,47 +629,51 @@ void Sample::Advance ()
 	
 		b->pos += b->vel * m_DT;
 
-		
-		if ( b->pos.y < 50 && b->clr.x == 0 ) {			
-			
-			// Ground avoidance
-			b->target.x *= 0.8;			
-			if ( b->target.x < 0.0001) b->target.x = 0;			
-			b->target.y = 40;   //+= 0.0001 * (100.0f - b->pos.y)/100.0f;
-			
-			b->target.z *= 0.9999;		//<--- causes z-axis drift
-			
-			b->clr.Set(0,0,1,1);
-			b->power = 4;
+		float cd;
 
-		} else {
-
-			// Banking - correlate banking with yaw
-			b->target.x = circleDelta(b->target.z, angs.z);
-			b->target.y *= 0.9999;
-			if ( b->target.y < 0.0001) b->target.y = 0;
 		
-			// Alone		
-			if ( b->nbr_cnt == 0 ) {
-				b->target.x = 0;
-				b->target.z = atan2( -b->pos.z , -b->pos.x ) * RADtoDEG + m_rnd.randF(1,20);
-				b->clr.Set(0,1,0,1);
-			}	
-		}
 
 		// Boundaries
+		/*if ( b->pos.x < m_Accel.bound_min.x ) b->target.z = 0;
+		if ( b->pos.x > m_Accel.bound_max.x ) b->target.z = 179;
+		if ( b->pos.z < m_Accel.bound_min.z ) b->target.z = 90;
+		if ( b->pos.z > m_Accel.bound_max.z ) b->target.z = -90;*/
+
+		/*Vector3DF pr ( b->pos.x, 0, b->pos.z );
+		f ( pr.Length() > m_Accel.bound_max.x ) {
+			b->target.z += 0.5;  //= fmod( atan2( -pr.z, -pr.x ) * RADtoDEG, 180 );
+		}*/
+		
 		if ( b->pos.x < m_Accel.bound_min.x ) b->pos.x = m_Accel.bound_max.x;
 		if ( b->pos.x > m_Accel.bound_max.x ) b->pos.x = m_Accel.bound_min.x;
 		if ( b->pos.z < m_Accel.bound_min.z ) b->pos.z = m_Accel.bound_max.z;
-		if ( b->pos.z > m_Accel.bound_max.z ) b->pos.z = m_Accel.bound_min.z;			   
+		if ( b->pos.z > m_Accel.bound_max.z ) b->pos.z = m_Accel.bound_min.z;			  
 
-		// Ceiling
-		if ( b->pos.y > m_Accel.bound_max.y ) {	
-			b->target.z = fmod(atan2( -b->pos.z , -b->pos.x ) * RADtoDEG, 180);
-			b->target.y = -40; 
-			b->clr.Set(0,1,0,1);
+		
+
+		// Ground avoidance
+		cd = b->pos.y - m_Accel.bound_min.y;
+		if ( cd < 50 ) {			
+			cd = (50-cd)/50.0f;
+
+			b->target.y += cd * 0.1;
+			b->clr.Set(cd,cd,0,1);
+			b->power = 4;
+		} 
+		
+		// Ceiling avoidance
+		cd = m_Accel.bound_max.y - b->pos.y;
+		if ( cd < 50  ) {	
+			cd = (50-cd)/50.0f;			
+						
+			b->target.y -= cd * 0.1; 			
+			b->clr.Set(0,cd,0,1);
+		} 
+
+		if (b->nbr_cnt==0) {						
+			b->target.z = fmod( atan2( b->pos.z , b->pos.x ) * RADtoDEG + 180, 180 );
+			//b->target.y *= 0.5;
 		}
-
 
 		// Ground condition
 		if (b->pos.y <= 0.00001 ) { 
@@ -652,6 +683,8 @@ void Sample::Advance ()
 			b->vel *= 0.9999;				// ground friction
 			b->orient.fromDirectionAndRoll ( Vector3DF(fwd.x, 0, fwd.z), 0 );	// zero pitch & roll			
 		} 
+
+		
 	
 		// Integrate velocity
 		b->vel += b->accel * m_DT;		
@@ -745,6 +778,8 @@ bool Sample::init ()
 	m_flightcam = true;
 	m_bird_sel = 0;
 	m_cockpit_view = false;
+	m_draw_sphere = false;
+	m_draw_grid = false;
 	m_rnd.seed (12);
 
 	addSearchPath ( ASSET_PATH );
@@ -761,6 +796,7 @@ bool Sample::init ()
 	// * birds are placed into a DataX structure to allow
 	// for easy sharing between CPU and GPU
 	
+	//m_num_birds = 5000;
 	m_num_birds = 1600;
 	//m_num_birds = 400;
 
@@ -768,13 +804,13 @@ bool Sample::init ()
 
 	m_Accel.bound_min = Vector3DF(-150,   0, -150);
 	m_Accel.bound_max = Vector3DF( 150, 200,  150);
-	m_Accel.psmoothradius = 20.0;	
+	m_Accel.psmoothradius = 15;
 	m_Accel.grid_density = 1.0;
 	m_Accel.sim_scale = 1.0;
 
 	InitializeGrid ();
 
-	m_max_speed = 500.0;		// top speed, 500 m/s = 1800 kph = 1118 mph
+	m_max_speed = 100.0;		// top speed, m/s
 	m_DT = 0.0025;
 	m_wind.Set (0, 0, 0);
 
@@ -803,25 +839,38 @@ void Sample::display ()
 		CameraToBird ( m_bird_sel );
   }*/
 
+	glClearColor(.8,.8,.9,1);
 	clearGL();
 
 	start3D(m_cam);		
 
+		setLight ( S3D, 0, 400, 0, 1,1,1 );	
+		setMaterial ( S3D, Vector3DF(0,0,0), Vector3DF(.2,.2,.2), 40, 0 );
+
 		// Draw ground
 		drawLine3D ( Vector3DF(0,0,0), Vector3DF(100,0,0), Vector4DF(1,0,0,1));
 		drawLine3D ( Vector3DF(0,0,0), Vector3DF(  0,0,100), Vector4DF(0,0,1,1));
-		drawGrid( Vector4DF(0.1,0.1,0.1,1) );
+		drawGrid( Vector4DF(0.1,0.1,0.1, .1) );
 
 		// Draw debug marks
-	  /*Vector3DF cn, p;
-		for (int k=0; k < m_mark.size(); k++) {
-			p = Vector3DF(m_mark[k]);			
-			drawCircle3D ( p, m_cam->getPos(), m_mark[k].w, Vector4DF(1,1,0,1) );
-		}*/
+		if (m_draw_sphere) {
 
-		drawBox3D ( m_Accel.bound_min, m_Accel.bound_max, 0,1,1,0.5 );
 
-		//DrawAccelGrid ();
+			Vector3DF cn, p;
+			for (int k=0; k < m_mark.size(); k++) {
+				p = Vector3DF(m_mark[k]);			
+				drawCircle3D ( p, m_cam->getPos(), m_mark[k].w, Vector4DF(1,1,0,1) );
+			}
+			b = (Bird*) m_Birds.GetElem(0, m_bird_sel );
+			drawCircle3D ( b->pos, m_cam->getPos(), 1.1, Vector4DF(0,1,0,1) );
+			b = (Bird*) m_Birds.GetElem(0, b->near_j );
+			drawCircle3D ( b->pos, m_cam->getPos(), 1.1, Vector4DF(1,0,0,1) );
+
+		}
+		if (m_draw_grid) {
+			drawBox3D ( m_Accel.bound_min, m_Accel.bound_max, 0,1,1,0.5 );
+			DrawAccelGrid ();
+		}
 
 		for (int n=0; n < m_Birds.GetNumElem(0); n++) {
 
@@ -831,14 +880,26 @@ void Sample::display ()
 			y = Vector3DF(0,1,0) * b->orient;
 			z = Vector3DF(0,0,1) * b->orient;
 
+			
+			//float v = b->accel.Length() / 50.0f;
+			//drawLine3D ( b->pos,		b->pos + b->vel*0.1f,	Vector4DF(v, 1-v,1-v,1) );
+			
 			float v = b->vel.Length() / 50.0f;
+			//drawLine3D ( b->pos,		b->pos + (b->vel/v)*0.05f,	Vector4DF(v, 1-v,1-v,1) );
 
-			drawLine3D ( b->pos,		b->pos + (b->vel/v)*0.05f,	Vector4DF(v, 1-v,1-v,1) );
+			//drawLine3D ( b->pos,		b->pos + (b->vel/v)*0.05f,	b->clr );
 
 			/*drawLine3D ( b->pos-z,	b->pos + z,					Vector4DF(1,1,1,0.4) );			// wings			
 			drawLine3D ( b->pos,	  b->pos + y*0.5f,	  Vector4DF(1,1,0,  1) );			// up
 			drawLine3D ( b->pos,		b->pos + (b->vel/v)*0.05f,	b->clr );							// velocity 
 			*/
+			Vector3DF p,q,r,t;
+			p = b->pos - z*2;
+			q = b->pos + z*2;
+			r = b->pos + x*4; 
+			t = y;
+			drawTri3D ( p.x,p.y,p.z, q.x,q.y,q.z, r.x,r.y,r.z, t.x,t.y,t.z, 1,1,1,1 );
+			
 
 			/*drawLine3D ( b->pos,	  b->pos+x,					Vector4DF(1,1,0,  1) );			// fwd			
 			
@@ -941,6 +1002,8 @@ void Sample::keyboard(int keycode, AppEnum action, int mods, int x, int y)
 		return;
 
 	switch ( keycode ) {
+	case 's': m_draw_sphere = !m_draw_sphere; break;
+	case 'g': m_draw_grid = !m_draw_grid; break;
   case 'c': m_cockpit_view = !m_cockpit_view; break;
 	case 'r': Reset(); break;
 	case ' ':	m_run = !m_run;	break;	
