@@ -839,7 +839,7 @@ void Sample::display ()
 		CameraToBird ( m_bird_sel );
   }*/
 
-	glClearColor(.8,.8,.9,1);
+	//glClearColor(.8,.8,.9,1);
 	clearGL();
 
 	start3D(m_cam);		
@@ -850,7 +850,7 @@ void Sample::display ()
 		// Draw ground
 		drawLine3D ( Vector3DF(0,0,0), Vector3DF(100,0,0), Vector4DF(1,0,0,1));
 		drawLine3D ( Vector3DF(0,0,0), Vector3DF(  0,0,100), Vector4DF(0,0,1,1));
-		drawGrid( Vector4DF(0.1,0.1,0.1, .1) );
+		drawGrid( Vector4DF(0.1,0.1,0.1, 1) );
 
 		// Draw debug marks
 		if (m_draw_sphere) {
@@ -881,11 +881,9 @@ void Sample::display ()
 			z = Vector3DF(0,0,1) * b->orient;
 
 			
-			//float v = b->accel.Length() / 50.0f;
-			//drawLine3D ( b->pos,		b->pos + b->vel*0.1f,	Vector4DF(v, 1-v,1-v,1) );
-			
 			float v = b->vel.Length() / 50.0f;
-			//drawLine3D ( b->pos,		b->pos + (b->vel/v)*0.05f,	Vector4DF(v, 1-v,1-v,1) );
+			
+			drawLine3D ( b->pos,		b->pos + (b->vel/v)*0.05f,	Vector4DF(v, 1-v,1-v,1) );
 
 			//drawLine3D ( b->pos,		b->pos + (b->vel/v)*0.05f,	b->clr );
 
@@ -898,7 +896,7 @@ void Sample::display ()
 			q = b->pos + z*2;
 			r = b->pos + x*4; 
 			t = y;
-			drawTri3D ( p.x,p.y,p.z, q.x,q.y,q.z, r.x,r.y,r.z, t.x,t.y,t.z, 1,1,1,1 );
+			//drawTri3D ( p.x,p.y,p.z, q.x,q.y,q.z, r.x,r.y,r.z, t.x,t.y,t.z, 1,1,1,1 );
 			
 
 			/*drawLine3D ( b->pos,	  b->pos+x,					Vector4DF(1,1,0,  1) );			// fwd			
