@@ -83,7 +83,7 @@ public:
 	virtual void mousewheel(int delta);
 	virtual void shutdown();
 
-	void			AddBird ( Vector3DF pos, Vector3DF vel, Vector3DF target, float power );	
+	Bird*			AddBird ( Vector3DF pos, Vector3DF vel, Vector3DF target, float power );	
 	void			FindNeighbors ();
 
 	void			InitializeGrid ();
@@ -125,7 +125,7 @@ public:
 
 Sample obj;
 
-void Sample::AddBird ( Vector3DF pos, Vector3DF vel, Vector3DF target, float power )
+Bird* Sample::AddBird ( Vector3DF pos, Vector3DF vel, Vector3DF target, float power )
 {
 	Vector3DF dir, angs;
 	Bird b;
@@ -143,6 +143,8 @@ void Sample::AddBird ( Vector3DF pos, Vector3DF vel, Vector3DF target, float pow
 	
 	int ndx = m_Birds.AddElem (0);
 	m_Birds.SetElem (0, ndx, &b );
+
+	return (Bird*) m_Birds.GetElem(0, ndx);
 }
 
 void Sample::Reset ()
@@ -150,6 +152,7 @@ void Sample::Reset ()
 	Vector3DF pos, vel;
 	float h;
 	int grp;
+	Bird* b;
 
 	int numPoints = m_num_birds;
 
@@ -168,11 +171,12 @@ void Sample::Reset ()
 				pos += Vector3DF( 0, 100, grp ? -60 : 60 );
 				vel = Vector3DF(  0,   0, grp ?  50 :-50 );
 				h = grp ? 90 : -90;
-				AddBird ( pos, vel, Vector3DF(0, 0, h), 3); 
+				b = AddBird ( pos, vel, Vector3DF(0, 0, h), 3); 
+				b->clr = (grp==0) ? Vector4DF(1,0,0,1) : Vector4DF(0,1,0,1);
 				ok = true;
 			}
-		}*/
-
+		} */
+		 
 		pos = m_rnd.randV3( -100, 100 ) + Vector3DF(0, 100, 0);
 		vel = m_rnd.randV3( -20, 20 );
 		h = m_rnd.randF(-180, 180);
@@ -512,6 +516,7 @@ void Sample::Advance ()
 	Quaternion angvel;
 	Bird *b, *bj, *bfwd;
 	bool leader;
+	float ave_yaw;
 
 	float safe_radius = 10.0;
 
@@ -531,11 +536,13 @@ void Sample::Advance ()
 		} 
 
 		diri = b->vel;			diri.Normalize();
-		dirj = b->ave_pos - b->pos; dirj.Normalize();
+		dirj = b->ave_pos - b->pos; dirj.Normalize();		
 		leader = (diri.Dot (dirj) < 0);
+		dirj *= b->orient.inverse();	
+		ave_yaw = atan2 ( dirj.z, dirj.x )*RADtoDEG;
 
 		// Turn entire flock
-		/* if ( int(m_time) % 200 == 0 ) {
+		/*if ( int(m_time) % 200 == 0 ) {
 			if (b->near_in == -1) {				
 				b->target.z = fmod( atan2( flock_pnt.z-b->pos.z, flock_pnt.x-b->pos.x ) * RADtoDEG, 180 );
 				b->clr.Set(1,1,0,1);			
@@ -563,11 +570,12 @@ void Sample::Advance ()
 				b->target.y -= pitch * ang_avoid / (dist*dist);					
 
 				// Power adjust				
-				vd = (b->vel.Length() - bj->vel.Length()) * 2.5;
-				float np = 2 - pow(vd, 3);
-				if ( fabs(b->power-np) > 2 )  {					
-					b->power = np;
-				}
+				vd = (b->vel.Length() - bj->vel.Length()) * 8.0;
+				float np = 2 - vd;								
+				b->power = np;
+				/*if ( fabs(b->power-np) > 2 )  {	
+					b->target.z -= ave_yaw ;
+				}*/
 			}			
 		}
 
@@ -582,16 +590,17 @@ void Sample::Advance ()
 				
 				// Direct collision avoidance
 				float s = (m_rnd.randF(0,1) < 0.5) ? 1 : -1;			
-				b->target.z += (b->near_in_ang < 0 ) ? 8 * s : 0;		
+				b->target.z += (b->near_in_ang < 0 ) ? 2 * s : 0;		
 
 				// Power avoidance					
-				vd = (b->vel.Length() + bj->vel.Length()) * 2.5;
-				float np = 2 - pow(vd, 5);				
-				if ( fabs(b->power-np) > 2 ) {					
+				vd = (b->vel.Length() + bj->vel.Length()) * 10.0;
+				float np = 2 - pow(vd, 3);				
+				//if ( fabs(b->power-np) > 2 ) {					
 					b->power = np;												
-				}
+				
 			}					
-		}		
+		}
+
 		if (b->power < -40) b->power = -40;
 		if (b->power > 40) b->power = 40;	
 
@@ -732,10 +741,9 @@ void Sample::Advance ()
 			b->target.y -= cd * 0.1; 						
 		} 
 
-		/*if (b->nbr_cnt==0) {						
-			b->target.z = fmod( atan2( b->pos.z , b->pos.x ) * RADtoDEG + 180, 180 );
-			//b->target.y *= 0.5;
-		}*/
+		if (b->nbr_cnt==0) {						
+			b->target.z = fmod( atan2( b->pos.z , b->pos.x ) * RADtoDEG + 180, 180 );			
+		}
 
 		// Ground condition
 		if (b->pos.y <= 0.00001 ) { 
@@ -840,7 +848,7 @@ bool Sample::init ()
 	m_run = true;
 	m_flightcam = true;	
 	m_cockpit_view = false;
-	m_draw_sphere = true;
+	m_draw_sphere = false;
 	m_draw_grid = false;
 	m_time = 0;
 	m_rnd.seed (12);
@@ -876,8 +884,8 @@ bool Sample::init ()
 	InitializeGrid ();
 
 	// speed limits
-	m_min_speed = 30.0;
-	m_max_speed = 50.0;	
+	m_min_speed = 20.0;
+	m_max_speed = 100.0;	
 
 	m_DT = 0.005;
 	//m_DT = 0.0025;
@@ -904,11 +912,11 @@ void Sample::display ()
 		Run ();
 	}	
 
-	if (m_cockpit_view) {
+	/*if (m_cockpit_view) {
 		CameraToCockpit ( m_bird_sel);
 	} else {
 		CameraToBird ( m_bird_sel );
-  }
+  }*/
 
 	if ( draw_vis ) {
 		glClearColor(0,0,0,1);
@@ -932,10 +940,14 @@ void Sample::display ()
 			}
 			b = (Bird*) m_Birds.GetElem(0, m_bird_sel );
 			drawCircle3D ( b->pos, m_cam->getPos(), 1.1, Vector4DF(0,1,0,1) );
-			b = (Bird*) m_Birds.GetElem(0, b->near_j );
-			drawCircle3D ( b->pos, m_cam->getPos(), 1.2, Vector4DF(1,0,0,1) );
-			b = (Bird*) m_Birds.GetElem(0, b->near_in );
-			drawCircle3D ( b->pos, m_cam->getPos(), 1.2, Vector4DF(1,0,1,1) );
+			if (b->near_j != -1 ) {
+				b = (Bird*) m_Birds.GetElem(0, b->near_j );
+				drawCircle3D ( b->pos, m_cam->getPos(), 1.2, Vector4DF(1,0,0,1) );
+			}
+			if (b->near_in != -1 ) {
+				b = (Bird*) m_Birds.GetElem(0, b->near_in );
+				drawCircle3D ( b->pos, m_cam->getPos(), 1.2, Vector4DF(1,0,1,1) );
+			}
 		}
 
 		// Draw acceleration grid
