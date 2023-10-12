@@ -555,7 +555,7 @@ void Sample::Advance ()
 		}*/
 
 		// Turn isolated birds toward flock centroid
-		float d = b->nbr_cnt / 15.0f;
+		float d = b->nbr_cnt / 10.0f;
 		if ( d < 1.0 ) { 
 			b->clr.Set(0,1,0, 1);	
 			dirj = m_centroid - b->pos; dirj.Normalize();
@@ -564,7 +564,7 @@ void Sample::Advance ()
 			pitch = asin( dirj.y )*RADtoDEG;
 			b->target.z +=   yaw * 0.005;
 			b->target.y += pitch * 0.005;
-			continue;
+			//continue;
 		}		
 	
 		// Rule 1. Avoidance - avoid nearest bird
@@ -580,7 +580,7 @@ void Sample::Advance ()
 
 				// Angular avoidance			
 				dirj = (dirj/dist) * b->orient.inverse();							
-				float ang_avoid = 0.60;			
+				float ang_avoid = 0.50;			
 				yaw = atan2( dirj.z, dirj.x )*RADtoDEG;
 				pitch = asin( dirj.y )*RADtoDEG;						
 				b->target.z -= yaw * ang_avoid / (dist*dist);
@@ -588,8 +588,9 @@ void Sample::Advance ()
 
 				// Power adjust				
 				vd = (b->vel.Length() - bj->vel.Length());
-				float np = 3 - vd;								
+				float np = 3 - vd;
 				b->power = np;
+
 				/*if ( fabs(b->power-np) > 2 )  {	
 					b->target.z -= ave_yaw ;
 				}*/
@@ -627,8 +628,8 @@ void Sample::Advance ()
 		dirj *= b->orient.inverse();		// using inverse orient for world-to-local xform		
 		yaw = atan2( dirj.z, dirj.x )*RADtoDEG;
 		pitch = asin( dirj.y )*RADtoDEG;
-		b->target.z += yaw   * 0.060;
-		b->target.y += pitch * 0.060;		 
+		b->target.z += yaw   * 0.030;
+		b->target.y += pitch * 0.030;		 
 
 		// Rule 3. Cohesion - steer toward neighbor centroid
 		dirj = b->ave_pos - b->pos;
@@ -883,7 +884,7 @@ bool Sample::init ()
 	// for easy sharing between CPU and GPU
 	
 	//m_num_birds = 5000;
-	m_num_birds = 1200;
+	m_num_birds = 2400;
 	//m_num_birds = 400;
 
   Reset ();
@@ -897,10 +898,10 @@ bool Sample::init ()
 	InitializeGrid ();
 
 	// speed limits
-	m_min_speed = 30.0;
-	m_max_speed = 80.0;	
+	m_min_speed = 20.0;
+	m_max_speed = 70.0;	
 
-	m_DT = 0.003;
+	m_DT = 0.006;
 	//m_DT = 0.0025;
 	m_wind.Set (0, 0, 0);
 
@@ -988,7 +989,7 @@ void Sample::display ()
 				
 				// visualize velocity
 				float v = (b->vel.Length() - m_min_speed) / (m_max_speed-m_min_speed);			
-				float v2 = (b->power + 10)/20.f;
+				float v2 = (b->power + 3)/10.f;
 				if (b->clr.w==0) {
 					drawLine3D ( b->pos,		b->pos + (b->vel*0.05f),	Vector4DF(v2, 1-v2,1-v2,1) );
 				} else {
@@ -998,9 +999,9 @@ void Sample::display ()
 			} else {
 				// bird dart
 				Vector3DF p,q,r,t;
-				p = b->pos - z*1;
-				q = b->pos + z*1;
-				r = b->pos + x*2; 
+				p = b->pos - z*1.5f;
+				q = b->pos + z*1.5f;
+				r = b->pos + x*3.0f; 
 				t = y;				
 				drawTri3D ( p.x,p.y,p.z, q.x,q.y,q.z, r.x,r.y,r.z, t.x,t.y,t.z, 1,1,1,1 );
 			}
