@@ -44,6 +44,11 @@ using B-Splines, Bezier Curves, and Catmull-Rom splines for position. Slerp or S
 - WangTiles - Sampling of spatial distribution functions with scale invariance.
 - WangTiles3D - Alternative demo of Wang Tiles for 3D geometry instancing over a density map landscape.
 
+## News & Updates
+
+**UPDATES**: 
+Dec 5th, 2023 - These steps confirmed working with libmin repo and Visual Studio 2019 in Dec 2023 for all samples.<br>
+
 ## How to Build
 <br>
 
