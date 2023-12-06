@@ -2,9 +2,13 @@
 
 Just Math - A collection of pure math demos.
 
-The goal of Just Math is to provide both a visual example and code demonstrations of specific concepts in computer graphics, mathematics, simulation and AI. This repository consists of 'libmin', a **minimal utility library** for math and graphics, along with **several math examples** for various concepts. 
+The goal of Just Math is to provide both a visual example and code demonstrations of specific concepts in computer graphics, mathematics, simulation and AI. 
 
-Copyright 2007-2022 (c) Quanta Sciences, Rama Hoetzlein, <a href="http://ramakarl.com">htpp://ramakarl.com</a>. MIT License.<br>
+*UPDATE (DEC 2023)*: 
+Just_math makes use of Libmin, now provided in a separate repo here: <a href="https://github.com/ramakarl/libmin">https://github.com/ramakarl/libmin</a>
+All samples have been updated to be compatible with this libmin.
+
+Copyright 2007-2023 (c) Quanta Sciences, Rama Hoetzlein, <a href="http://ramakarl.com">htpp://ramakarl.com</a>. MIT License.<br>
 Contact: ramahoetzlein@gmail.com
 
 ## Sample Gallery
@@ -29,7 +33,6 @@ Each sample in Just Math demonstrates a specific concept in code and visually.
 The samples provided are briefly described:
 - 3DDDA - 3D Differential Analyzer. March through a volume to identify voxels on a line.
 - Basis - Orthonormal bases. Transformation from one space to another using bases.
-- BeliefProp - Belief propagation. Demonstrated on a 3D grid domain with speedups.
 - Cells - Cellular membrane simulation. Simulated with physics using circles for cells.
 - Deform - 3D spatial deformations, including bending, twisting and folding.
 - InvK - Inverse Kinematics using quaternions. Demo of robot and human arm IK.
@@ -40,7 +43,6 @@ using B-Splines, Bezier Curves, and Catmull-Rom splines for position. Slerp or S
 - Voxelizer - Voxelization of triangle into a volume, using several methods.
 - WangTiles - Sampling of spatial distribution functions with scale invariance.
 - WangTiles3D - Alternative demo of Wang Tiles for 3D geometry instancing over a density map landscape.
-- Flightsim - *NEW* 2023. Simple force-driven flight simulator.
 
 ## How to Build
 Platforms:<br>
@@ -53,7 +55,8 @@ Dependencies: OpenGL only, CUDA is optional (flag at cmake time)<br>
 Cmake build options should default to BUILD_OPENGL=ON, BUILD_CUDA=off, BUILD_CONSOLE=off.<br>
 Keep these settings. CUDA and/or Console mode are not yet well supported.
 
-**Step 1)** Cmake and build Libmin. <br><br>
+**Step 1)** Cmake and build Libmin from <a href="https://github.com/ramakarl/libmin">here</a> <br><br>
+Libmin repo: <a href="https://github.com/ramakarl/libmin">https://github.com/ramakarl/libmin</a>
 Windows: `cmake -S \just_math\libmin -B \build\libmin`<br><br>
 Linux: `cmake -DBUILD_OPENGL=OFF`
  (you may need to create a libmin\bin folder and copy liblibmin.so into libmin\bin\libmind.so and libmin\bin\libmin.so)<br><br>
@@ -65,6 +68,7 @@ You must successfully build libmin before proceeding to step 2.<br>
 Windows: `cmake -S \just_math\raycast -B \build\raycast`<br><br>
 Linux: `cmake -DBUILD_OPENGL=OFF -DBUILD_CONSOLE=ON -DLIBMIN_ROOT_DIR={abspath}`<br><br>
 
+**Specify the installed path of libmin as LIBMIN_PATH during cmake.**
 The binary (build) path should be outside of the source \just_math folder.<br>
 Build and run the sample.<br>
 
