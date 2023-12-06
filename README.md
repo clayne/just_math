@@ -45,7 +45,6 @@ _Platforms:_ <br>
 - Win10, Visual Studio 2019 - definitely<br>
 - Win10/11, VS{other} - probably<br>
 - Linux - let me know if you want<br>
-<br>
 _Dependencies:_ <br>
 - <a href="https://github.com/ramakarl/libmin">Libmin</a> - minimal utilitiy libary for graphics.<br>
 - OpenGL <br>
