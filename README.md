@@ -28,10 +28,14 @@ Contact: ramahoetzlein@gmail.com
 Each sample in Just Math demonstrates a specific concept in code and visually.
 The samples provided are briefly described:
 - 3DDDA - 3D Differential Analyzer. March through a volume to identify voxels on a line.
+- ANN - Artificial Neural Network learning the sine function.
 - Basis - Orthonormal bases. Transformation from one space to another using bases.
+- Bilinear Patch - Fast raytracing of a bilinear patch (curved quad defined by 4x points).
 - Cells - Cellular membrane simulation. Simulated with physics using circles for cells.
 - Deform - 3D spatial deformations, including bending, twisting and folding.
+- Gcoder - Generation of CNC toolpath g-code from depth images.
 - InvK - Inverse Kinematics using quaternions. Demo of robot and human arm IK.
+- Obj Materials - Reads and renders 3D meshes (.obj) with their material (.mtl) definitions.
 - QuatSquad - Quaternion Squad. A C1 continuous method for interpolating orientations.
 - QuatTrajectory - Trajectory interpolation of both position and orientation,
 using B-Splines, Bezier Curves, and Catmull-Rom splines for position. Slerp or Squad for orientation.
