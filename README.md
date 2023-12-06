@@ -57,36 +57,29 @@ using B-Splines, Bezier Curves, and Catmull-Rom splines for position. Slerp or S
 Cmake build options should default to BUILD_OPENGL=ON, BUILD_CUDA=off, BUILD_CONSOLE=off.<br>
 Keep these settings. CUDA and/or Console mode are not yet well supported.
 
-**Step 1)** Cmake and build Libmin from <a href="https://github.com/ramakarl/libmin">here</a> <br><br>
-Libmin repo: <a href="https://github.com/ramakarl/libmin">https://github.com/ramakarl/libmin</a>
-Windows: `cmake -S \just_math\libmin -B \build\libmin`<br><br>
-Linux: `cmake -DBUILD_OPENGL=OFF`
- (you may need to create a libmin\bin folder and copy liblibmin.so into libmin\bin\libmind.so and libmin\bin\libmin.so)<br><br>
-
+**Step 1)** Cmake and build Libmin from <a href="https://github.com/ramakarl/libmin">here</a> <br>
+Libmin repo: <a href="https://github.com/ramakarl/libmin">https://github.com/ramakarl/libmin</a><br>
+Windows: `cmake -S \just_math\libmin -B \build\libmin`<br>
+Linux: `cmake -DBUILD_OPENGL=OFF`<br>
+ (you may need to create a libmin\bin folder and copy liblibmin.so into libmin\bin\libmind.so and libmin\bin\libmin.so)<br>
 The binary (build) path should be outside of the source \just_math folder.<br>
 You must successfully build libmin before proceeding to step 2.<br>
 
-**Step 2)** Cmake and build sample. <br><br>
-Windows: `cmake -S \just_math\raycast -B \build\raycast`<br><br>
-Linux: `cmake -DBUILD_OPENGL=OFF -DBUILD_CONSOLE=ON -DLIBMIN_ROOT_DIR={abspath}`<br><br>
-
-**Specify the installed path of libmin as LIBMIN_PATH during cmake.**
+**Step 2)** Cmake and build sample. <br>
+Windows: `cmake -S \just_math\raycast -B \build\raycast`<br>
+Linux: `cmake -DBUILD_OPENGL=OFF -DBUILD_CONSOLE=ON -DLIBMIN_ROOT_DIR={abspath}`<br>
+**Specify the installed path of libmin as LIBMIN_PATH during cmake.** <br>
 The binary (build) path should be outside of the source \just_math folder.<br>
 Build and run the sample.<br>
-
 
 ## Contributions
 I am interested in building a community around simple, well documented, math codes, in pure C/C++ for CPU (no shaders), with interactive graphical demos (not just youtube videos) that are MIT/BSD Licensed. If you have similar interests contact me at: Rama Hoetzlein, ramahoetzlein@gmail.com
 
 ## License
-
 MIT License <br>
-Copyright 2007-2022 (c) Quanta Sciences, Rama Hoetzlein, ramakarl.com<br>
-
+Copyright 2007-2023 (c) Quanta Sciences, Rama Hoetzlein, ramakarl.com<br>
 The Just Math samples are MIT Licensed.<br>
-
 Libmin is MIT Licensed with contributions from other BSD and MIT licensed sources.<br>
-
 Contact: Rama Hoetzlein at ramahoetzlein@gmail.com
 
 
