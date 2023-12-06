@@ -44,11 +44,12 @@
 
 #include <time.h>
 #include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
+#include "gxlib.h"			// rendering
+using namespace glib;
+
 #include "quaternion.h"
 #include "string_helper.h"
-
-#include "mesh.h"
+#include "meshx.h"
 
 // shader slots (must match glsl layout of shader being used)
 #define slotPos		0
@@ -72,10 +73,10 @@
 // Material Template Library spec
 struct RMtl {
 	std::string name;
-	Vector3DF Ka;		// ambient
-	Vector3DF Kd;		// diffuse
-	Vector3DF Ks;		// specular	
-	Vector3DF Tf;		// transparent clr
+	Vec3F Ka;		// ambient
+	Vec3F Kd;		// diffuse
+	Vec3F Ks;		// specular	
+	Vec3F Tf;		// transparent clr
 	float d;			// transparency (dissolve)
 	float Ni;			// index of refraction
 	float Ns;			// specular power	
@@ -96,8 +97,8 @@ struct RMesh {
 		  for (int v=0;v <VBO_MAX;v++)
 			mVBO[v] = VBO_NULL;
 	}
-	Vector3DF	pos;
-	Vector3DF	orient;
+	Vec3F	pos;
+	Vec3F	orient;
 
 	MeshX*		mesh;				// mesh geometry (cpu)
 	int			vert_cnt;			// total vert count
@@ -121,14 +122,14 @@ public:
 	virtual void mousewheel(int delta);
 	virtual void shutdown();
 
-	void		drawGrid (Vector4DF clr);
+	void		drawGrid (Vec4F clr);
 
 	void		LoadMaterials ( std::string name );
 	void		ResolveMaterials ();
 	int			FindMaterial ( std::string name ) ;
 	
 
-	void		AddMesh ( std::string name, Vector3DF pos, Vector3DF rot );
+	void		AddMesh ( std::string name, Vec3F pos, Vec3F rot );
 	void		RenderMesh ( RMesh& rm );
 	void		SketchMesh ( RMesh& rm ) ;
 		
@@ -145,7 +146,6 @@ public:
 };
 Sample obj;
 
-
 bool Sample::init ()
 {
 	int w = getWidth(), h = getHeight();			// window width &f height
@@ -158,18 +158,18 @@ bool Sample::init ()
 
 	init2D ( "arial" );
 	setview2D ( w, h );	
-	setText ( 16, 1 );		
+	setTextSz ( 16, 1 );		
 
 	// 1. Load multple meshes
 	// - must have correct 'face orientation'
 	// - only triangle meshes (no quads)
 	// - assume all using the same .mtl file
 
-	AddMesh ( "01_rail_bend.obj",			Vector3DF(0,0,0), Vector3DF(0,0,0) );
-	AddMesh ( "02_rail_straight.obj",		Vector3DF(0,0,0), Vector3DF(0,0,0) );
-	AddMesh ( "03_rail_cross.obj",			Vector3DF(0,0,0), Vector3DF(0,0,0) );
-	AddMesh ( "04_rail_incline_start.obj",	Vector3DF(0,0,0), Vector3DF(0,0,0) );
-	AddMesh ( "05_rail_incline_end.obj",	Vector3DF(0,0,0), Vector3DF(0,0,0) );	
+	AddMesh ( "01_rail_bend.obj",			Vec3F(0,0,0), Vec3F(0,0,0) );
+	AddMesh ( "02_rail_straight.obj",		Vec3F(0,0,0), Vec3F(0,0,0) );
+	AddMesh ( "03_rail_cross.obj",			Vec3F(0,0,0), Vec3F(0,0,0) );
+	AddMesh ( "04_rail_incline_start.obj",	Vec3F(0,0,0), Vec3F(0,0,0) );
+	AddMesh ( "05_rail_incline_end.obj",	Vec3F(0,0,0), Vec3F(0,0,0) );	
 
 	//AddMesh ( "b000.obj" );
 	//AddMesh ( "b001.obj" );
@@ -187,7 +187,7 @@ bool Sample::init ()
 	m_cam = new Camera3D;
 	m_cam->setFov ( 120 );
 	m_cam->setNearFar ( 0.01, 100 );
-	m_cam->SetOrbit ( Vector3DF(240, 20,0), Vector3DF(0.5, 0.5, 0.5), 2.5, 0.01 );
+	m_cam->SetOrbit ( Vec3F(240, 20,0), Vec3F(0.5, 0.5, 0.5), 2.5, 0.01 );
 
 	return true;
 }
@@ -290,7 +290,7 @@ int Sample::FindMaterial ( std::string name )
 	return -1;
 }
 
-void Sample::AddMesh ( std::string name, Vector3DF pos, Vector3DF rot )
+void Sample::AddMesh ( std::string name, Vec3F pos, Vec3F rot )
 {
 	RMesh rm;
 
@@ -336,23 +336,22 @@ void Sample::AddMesh ( std::string name, Vector3DF pos, Vector3DF rot )
 	if ( rm.mesh->isActive ( BVERTCLR ) ) {
 		glGenBuffers ( 1, (GLuint*) &rm.mVBO[ VBO_CLR ] );
 		glBindBufferARB ( GL_ARRAY_BUFFER_ARB, rm.mVBO[ VBO_CLR ] );
+		glBufferDataARB ( GL_ARRAY_BUFFER_ARB, rm.mesh->GetBufSize(BVERTCLR), rm.mesh->GetBufData(BVERTCLR), GL_DYNAMIC_DRAW);
 
-		// MeshX packs colors into ints (RGBA), so we 
+		// [optional] MeshX packs colors into ints (RGBA), so we 
 		// need to repack 4-byte colors (32-bits) into 16-byte Vec4F (128-bits).
 		//int ndx_cnt = rm.vert_cnt[grp];
-		int ndx_cnt = rm.mesh->GetNumElem ( BVERTCLR );
-		int repack_sz =  ndx_cnt * sizeof(Vector4DF);
-		Vector4DF* repack_buf = (Vector4DF*) malloc ( repack_sz );
+		/* int ndx_cnt = rm.mesh->GetNumElem ( BVERTCLR );
+		int repack_sz =  ndx_cnt * sizeof(Vec4F);
+		Vec4F* repack_buf = (Vec4F*) malloc ( repack_sz );
 		uint32_t*  src_buf = (uint32_t*) rm.mesh->GetBufData( BVERTCLR );
-		Vector4DF* dst_buf = repack_buf;
+		Vec4F* dst_buf = repack_buf;
 		for (int n=0; n < ndx_cnt; n++) {
 			*dst_buf++ = CLRVEC( *src_buf );		// cast uint clr to Vec4F clr
 			src_buf++;
-		}
-
+		} 
 		glBufferDataARB ( GL_ARRAY_BUFFER_ARB, repack_sz, repack_buf, GL_DYNAMIC_DRAW);
-
-		free (repack_buf);
+		free (repack_buf); */
 	}
 
 	if ( rm.mesh->isActive ( BVERTNORM ) ) {				
@@ -368,20 +367,23 @@ void Sample::AddMesh ( std::string name, Vector3DF pos, Vector3DF rot )
 	if ( rm.mesh->isActive ( BFACEV3 ) ) {		
 		glGenBuffers ( 1, (GLuint*) &rm.mVBO[ VBO_FACES ] );
 		glBindBufferARB ( GL_ELEMENT_ARRAY_BUFFER_ARB, rm.mVBO[ VBO_FACES ] );
+		glBufferDataARB ( GL_ELEMENT_ARRAY_BUFFER_ARB, rm.mesh->GetBufSize(BFACEV3), rm.mesh->GetBufData (BFACEV3), GL_DYNAMIC_DRAW );
 
-		// MeshX supports very large meshes natively, with int64_t so we 
+		// [optional] MeshX can very large meshes natively, with int64_t so we 
 		// need to repack 64-bit vertex indices into 32-bits for OpenGL.
-		int ndx_cnt = rm.mesh->GetBufSize( BFACEV3 ) / sizeof(int64_t);
+		/*int ndx_cnt = rm.mesh->GetBufSize( BFACEV3 ) / sizeof(int64_t);
 		int repack_sz =  ndx_cnt * sizeof(int32_t);
 		int32_t* repack_buf = (int32_t*) malloc ( repack_sz );
 		int64_t* src_buf = (int64_t*) rm.mesh->GetBufData( BFACEV3 );
 		int32_t* dst_buf = repack_buf;
 		for (int n=0; n < ndx_cnt; n++) {
 			*dst_buf++ = (int32_t) *src_buf++;		// cast to 32-bit int
-		}
+		} 
 		glBufferDataARB ( GL_ELEMENT_ARRAY_BUFFER_ARB, repack_sz, repack_buf, GL_DYNAMIC_DRAW );
+		free ( repack_buf); */
 
-		free ( repack_buf);
+
+		
 	}
 	checkGL ("mesh bindings");
 
@@ -393,7 +395,7 @@ void Sample::RenderMesh ( RMesh& rm )
 {
 	// Set model matrix	
 	Matrix4F mtx;
-	Vector3DF tile_origin (0.5, 0.5, 0.5);	
+	Vec3F tile_origin (0.5, 0.5, 0.5);	
 	mtx.RotateZYXT ( rm.orient, tile_origin * -1 );		// rotation		
 	mtx.PostTranslate ( rm.pos + tile_origin );			// translation
 
@@ -431,10 +433,10 @@ void Sample::RenderMesh ( RMesh& rm )
 	if (rm.mVBO[VBO_CLR] != VBO_NULL) {
 		glEnableVertexAttribArray ( slotClr );
 		glBindBuffer(GL_ARRAY_BUFFER, rm.mVBO[VBO_CLR]);
-		glVertexAttribPointer( slotClr, 4, GL_FLOAT, GL_FALSE, 0x0, 0);		// Bind color (float4)
+		glVertexAttribIPointer( slotClr, 1, GL_UNSIGNED_INT, 0x0, 0);		// Bind color (32-bit uint RGBA)
 	} else {
 		glDisableVertexAttribArray ( slotClr );
-		glVertexAttrib4f( slotClr, 1.0, 1.0, 1.0, 1.0 );	// value when not bound
+		glVertexAttribI1ui ( slotClr, COLORA(1.0, 1.0, 1.0, 1.0) );	// value when not bound
 	}
 	// bind face indices		
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, rm.mVBO[VBO_FACES] );				// Bind face indices		
@@ -459,12 +461,12 @@ void Sample::RenderMesh ( RMesh& rm )
 			mtl_id = rm.mFaceGrps[i].mtl_id;
 			if (  mtl_id >= 0 ) {
 				// assign color to shader slot
-				Vector3DF Kd = m_materials [ mtl_id].Kd;
+				Vec3F Kd = m_materials [ mtl_id].Kd;
 				glDisableVertexAttribArray ( slotClr );
-				glVertexAttrib4f( slotClr, Kd.x, Kd.y, Kd.z, 1.0 );
+				glVertexAttribI1ui( slotClr, COLORA(Kd.x, Kd.y, Kd.z, 1.0) );		// Bind color (32-bit uint RGBA)
 
 				// set material params on current shader
-				setMaterial ( S3D, m_materials [ mtl_id].Ks, Kd, m_materials [ mtl_id].Ns, 1.0 );
+				setMaterial ( Vec3F(0,0,0), Kd, m_materials [ mtl_id].Ks, m_materials [ mtl_id].Ns, 1.0 );
 			}
 			
 			// draw a sub-range of vertices from VBO
@@ -476,7 +478,7 @@ void Sample::RenderMesh ( RMesh& rm )
 
 		glDisableVertexAttribArray ( slotClr );
 		glVertexAttrib4f( slotClr, 0.4, 0.4, 0.42, 1.0 );
-		setMaterial ( S3D, Vector3DF(0.3,0.3,0.3), Vector3DF(0.4,0.4,0.42), 50, 1.0 );
+		setMaterial ( Vec3F(0,0,0), Vec3F(0.4,0.4,0.42), Vec3F(0.3,0.3,0.3), 50, 1.0 );
 
 		glDrawElements ( GL_TRIANGLES, rm.vert_cnt, GL_UNSIGNED_INT, (void*) 0 );	
 	}	
@@ -487,21 +489,21 @@ void Sample::SketchMesh ( RMesh& rm )
 {
 	// Set model matrix	
 	Matrix4F rmtx, tmtx;
-	Vector3DF tile_origin (0.5, 0.5, 0.5);	
+	Vec3F tile_origin (0.5, 0.5, 0.5);	
 	rmtx.RotateZYXT ( rm.orient, tile_origin * -1 );		// rotation		
 	tmtx = rmtx;
 	tmtx.PostTranslate ( rm.pos + tile_origin );			// translation
 
 	// sketch mesh face-by-face 
-	Vector3DF n, V;
-	Vector3DF v0, v1, v2;
-	Vector3DF n0, n1, n2;
-	Vector3DF uv0, uv1, uv2;
+	Vec3F n, V;
+	Vec3F v0, v1, v2;
+	Vec3F n0, n1, n2;
+	Vec3F uv0, uv1, uv2;
 	CLRVAL c0,c1,c2;
 	AttrV3* f;		// contains 64-bit vertex indices
 	
-	Vector4DF lclr(1,1,1, 0.3);		// line color
-	Vector4DF fclr(1,1,1, 1);		// face color
+	Vec4F lclr(1,1,1, 0.3);		// line color
+	Vec4F fclr(1,1,1, 1);		// face color
 
 	int num_tri = rm.mesh->GetNumElem ( BFACEV3 );	
 
@@ -526,7 +528,7 @@ void Sample::SketchMesh ( RMesh& rm )
 		V = m_cam->getPos() - v0;
 		if ( n.Dot ( V ) >= 0 ) {
 			// draw triangle
-			Vector4DF clr;
+			Vec4F clr;
 			clr = CLRVEC( c0 );
 
 			//drawTri3D ( v0.x,v0.y,v0.z, v1.x,v1.y,v1.z, v2.x,v2.y,v2.z, n0.x,n0.y,n0.z, clr.x,clr.y,clr.z,1);
@@ -538,26 +540,26 @@ void Sample::SketchMesh ( RMesh& rm )
 			}
 			
 			if ( m_draw_normals ) {
-				drawLine3D ( v0, v0 + n0 * normals, Vector4DF(0,1,1,0.5) );
-				drawLine3D ( v1, v1 + n1 * normals, Vector4DF(0,1,1,0.5) );
-				drawLine3D ( v2, v2 + n2 * normals, Vector4DF(0,1,1,0.5) );
+				drawLine3D ( v0, v0 + n0 * normals, Vec4F(0,1,1,0.5) );
+				drawLine3D ( v1, v1 + n1 * normals, Vec4F(0,1,1,0.5) );
+				drawLine3D ( v2, v2 + n2 * normals, Vec4F(0,1,1,0.5) );
 			}
 		}
 	}
 }
 
 
-void Sample::drawGrid( Vector4DF clr )
+void Sample::drawGrid( Vec4F clr )
 {
 	float o = -0.01;
 	for (int n=-10; n <= 10; n++ ) {
-		drawLine3D ( Vector3DF(n, o, -10), Vector3DF(n, o, 10), clr );
-		drawLine3D ( Vector3DF(-10, o, n), Vector3DF(10, o, n), clr );
+		drawLine3D ( Vec3F(n, o, -10), Vec3F(n, o, 10), clr );
+		drawLine3D ( Vec3F(-10, o, n), Vec3F(10, o, n), clr );
 	}
 }
 
 
-bool intersectBox (Vector3DF p1, Vector3DF p2, Vector3DF bmin, Vector3DF bmax, float& t, int& f)
+bool intersectBox (Vec3F p1, Vec3F p2, Vec3F bmin, Vec3F bmax, float& t, int& f)
 {
 	// p1 = ray position, p2 = ray direction
 	register float ht[8];
@@ -580,75 +582,36 @@ bool intersectBox (Vector3DF p1, Vector3DF p2, Vector3DF bmin, Vector3DF bmax, f
 
 void Sample::display ()
 {	
-	Vector3DF pnt;
-	Vector4DF clr;
+	Vec3F pnt;
+	Vec4F clr;
 
 	int w = getWidth();
 	int h = getHeight();
 
 
 	float t;
-	Vector3DF rpos = m_cam->getPos();
-	Vector3DF rdir = m_cam->inverseRay ( getX(), getY(), w, h ); rdir.Normalize();
+	Vec3F rpos = m_cam->getPos();
+	Vec3F rdir = m_cam->inverseRay ( getX(), getY(), w, h ); rdir.Normalize();
 	
 	int f;
-	intersectBox ( rpos, rdir, Vector3DF(0,0,0), Vector3DF(1,1,1), t, f );
-	Vector3DF hit = rpos + rdir * t;
+	intersectBox ( rpos, rdir, Vec3F(0,0,0), Vec3F(1,1,1), t, f );
+	Vec3F hit = rpos + rdir * t;
 
 
 	glClearColor ( 0.4,0.42,0.45, 1.0);
 	clearGL();	
 
-	// 2D rendering (overlay)
-    setview2D(getWidth(), getHeight());
-	start2D();
-	end2D();
 
 	// 3D rendering (widgets)
 	start3D(m_cam);
-		// Draw ground
-		//drawGrid( Vector4DF(.1, .1, .1, 1) );
-
-		if (f>=0) {
-			drawBox3D ( hit-Vector3DF(0.01,0.01,0.01), hit+Vector3DF(0.01,0.01,0.01), 1,1,0,1 );
-			drawLine3D ( hit, Vector3DF(hit.x,0,hit.z), Vector4DF(0,1,1,1));
-
-			switch (f) {
-			case 0: drawBox3D ( Vector3DF(0,0,0), Vector3DF(-0.01,1,1), 0,1,1,1); break;
-			case 1: drawBox3D ( Vector3DF(1,0,0), Vector3DF(+1.01,1,1), 0,1,1,1); break;
-			case 2: drawBox3D ( Vector3DF(0,0,0), Vector3DF(1,-0.01,1), 0,1,1,1); break;
-			case 3: drawBox3D ( Vector3DF(0,1,0), Vector3DF(1,+1.01,1), 0,1,1,1); break;
-			case 4: drawBox3D ( Vector3DF(0,0,0), Vector3DF(1,1,-0.01), 0,1,1,1); break;
-			case 5: drawBox3D ( Vector3DF(0,0,1), Vector3DF(1,1,+1.01), 0,1,1,1); break;
-				break;
-			};
-		}
-
-		drawBox3D ( Vector3DF(0,0,0), Vector3DF(1,1,1), 1,1,1,1 );
-
-		// track guides
-		float gauge = 0.06;		// track gauge
-		float hp = gauge/2;
-		drawLine3D ( Vector3DF(0.5,0,0), Vector3DF(0.5,0.1,0), Vector4DF(1,1,0,1) );
-		drawLine3D ( Vector3DF(0.5-hp,0,0), Vector3DF(0.5-hp,0.1,0), Vector4DF(0,0,1,1) );
-		drawLine3D ( Vector3DF(0.5+hp,0,0), Vector3DF(0.5+hp,0.1,0), Vector4DF(0,0,1,1) );
-
-		drawLine3D ( Vector3DF(0.5,0,1), Vector3DF(0.5,0.1,1), Vector4DF(1,1,0,1) );
-		drawLine3D ( Vector3DF(0.5-hp,0,1), Vector3DF(0.5-hp,0.1,1), Vector4DF(0,0,1,1) );
-		drawLine3D ( Vector3DF(0.5+hp,0,1), Vector3DF(0.5+hp,0.1,1), Vector4DF(0,0,1,1) );
-
-		drawLine3D ( Vector3DF(0,0,0.5), Vector3DF(0,0.1,0.5), Vector4DF(1,1,0,1) );
-		drawLine3D ( Vector3DF(0,0,0.5-hp), Vector3DF(0,0.1,0.5-hp), Vector4DF(0,0,1,1) );
-		drawLine3D ( Vector3DF(0,0,0.5+hp), Vector3DF(0,0.1,0.5+hp), Vector4DF(0,0,1,1) );
-
-		drawLine3D ( Vector3DF(1,0,0.5), Vector3DF(1,0.1,0.5), Vector4DF(1,1,0,1) );
-		drawLine3D ( Vector3DF(1,0,0.5-hp), Vector3DF(1,0.1,0.5-hp), Vector4DF(0,0,1,1) );
-		drawLine3D ( Vector3DF(1,0,0.5+hp), Vector3DF(1,0.1,0.5+hp), Vector4DF(0,0,1,1) );
-
-		// draw outlines and normals
 		
-		//for (int i=0; i < m_meshes.size(); i++ )
-		SketchMesh ( m_meshes[ m_curr_mesh ] );		
+		// Draw box
+
+		drawBox3D ( Vec3F(0,0,0), Vec3F(1,1,1), Vec4F(1,1,1,1) );
+
+		// Draw meshes		
+		for (int i=0; i < m_meshes.size(); i++ )
+			SketchMesh ( m_meshes[ m_curr_mesh ] );		
 		
 	end3D();
 
@@ -658,8 +621,8 @@ void Sample::display ()
 	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
 	glEnable(GL_VERTEX_PROGRAM_TWO_SIDE);
 
-	selfDraw3D ( m_cam, S3D );
-	setLight ( S3D, -3, 8, 2, 3.3,3.3,3);
+	selfDraw3D ( m_cam );
+		setLight3D ( Vec3F(-3, 8, 2), Vec4F(3.3, 3.3, 3, 1));
 
 		selfSetTexture();	// no texturing
 
@@ -672,8 +635,7 @@ void Sample::display ()
 	
 	selfEndDraw3D();
 
-	draw2D (); 	
-	draw3D ();
+	drawAll (); 		
 	
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
@@ -696,7 +658,7 @@ void Sample::motion (AppEnum button, int x, int y, int dx, int dy)
 	bool shift = (getMods() & KMOD_SHIFT);		// Shift-key to modify light
 	bool alt = (getMods() & KMOD_ALT);
 	float fine = 0.5f;
-	Vector3DF dang; 
+	Vec3F dang; 
 
 	switch ( mouse_down ) {	
 	case AppEnum::BUTTON_LEFT: {
@@ -707,7 +669,7 @@ void Sample::motion (AppEnum button, int x, int y, int dx, int dy)
 				m_cam->moveRelative ( float(dx) * zoom, float(-dy) * zoom, 0 );	
 			} else {
 				// Adjust orbit angles
-				Vector3DF angs = m_cam->getAng();
+				Vec3F angs = m_cam->getAng();
 				angs.x += dx*0.2f;
 				angs.y -= dy*0.2f;				
 				m_cam->SetOrbit ( angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly() );
@@ -719,7 +681,7 @@ void Sample::motion (AppEnum button, int x, int y, int dx, int dy)
 
 	case AppEnum::BUTTON_RIGHT: {
 		// Adjust orbit angles
-		Vector3DF angs = m_cam->getAng();
+		Vec3F angs = m_cam->getAng();
 		angs.x += dx*0.2f;
 		angs.y -= dy*0.2f;				
 		m_cam->SetOrbit ( angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly() );

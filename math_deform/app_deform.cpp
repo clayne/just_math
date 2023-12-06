@@ -26,7 +26,9 @@
 
 #include <time.h>
 #include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
+#include "gxlib.h"			// rendering
+using namespace glib;
+
 #include "quaternion.h"
 
 class Sample : public Application {
@@ -51,24 +53,24 @@ public:
 	void		DeformTwist();
 	void		DeformFold();
 
-	Vector3DI	m_pnt_min, m_pnt_max, m_pnt_res;
+	Vec3I	m_pnt_min, m_pnt_max, m_pnt_res;
 
-	Vector3DF	m_bend_size;		
-	Vector3DF	m_bend_radius;
-	Vector3DF	m_bend_ctr;
-	Vector3DF	m_bend_amt;
+	Vec3F	m_bend_size;		
+	Vec3F	m_bend_radius;
+	Vec3F	m_bend_ctr;
+	Vec3F	m_bend_amt;
 	
-	Vector3DF	m_twist_amt;
-	Vector3DF	m_twist_size;
-	Vector3DF	m_twist_ctr;
+	Vec3F	m_twist_amt;
+	Vec3F	m_twist_size;
+	Vec3F	m_twist_ctr;
 
-	Vector3DF	m_fold_ctr;
-	Vector3DF	m_fold_amt;
+	Vec3F	m_fold_ctr;
+	Vec3F	m_fold_amt;
 
-	std::vector<Vector3DF>	m_input_pos;
+	std::vector<Vec3F>	m_input_pos;
 	std::vector<Quaternion>	m_input_rot;
 
-	std::vector<Vector3DF>	m_pos;
+	std::vector<Vec3F>	m_pos;
 	std::vector<Quaternion>	m_rot;
 
 	int			m_mode;
@@ -80,12 +82,12 @@ Sample obj;
 void Sample::CreatePnts()
 {
 	// Make points
-	Vector3DF p, s;
+	Vec3F p, s;
 	Quaternion q;
 	
 	m_pnt_min.Set(0,-2,-2);
 	m_pnt_max.Set(10,2,2);
-	m_pnt_res = m_pnt_max - m_pnt_min + Vector3DI(1,1,1);
+	m_pnt_res = m_pnt_max - m_pnt_min + Vec3I(1,1,1);
 
 	for (p.x = m_pnt_min.x; p.x <= m_pnt_max.x; p.x++) {
 		for (p.y = m_pnt_min.y; p.y <= m_pnt_max.y; p.y++) {
@@ -110,10 +112,10 @@ bool Sample::init ()
 	addSearchPath ( ASSET_PATH );
 	init2D ( "arial" );
 	setview2D ( w, h );	
-	setText ( 16, 1 );		
+	setTextSz ( 16, 1 );		
 	
 	m_cam = new Camera3D;
-	m_cam->setOrbit ( Vector3DF(-40, 30,0), Vector3DF(0,0,0), 100, 1 );
+	m_cam->SetOrbit ( Vec3F(-40, 30,0), Vec3F(0,0,0), 100, 1 );
 
 	// Create pnts
 	CreatePnts();
@@ -140,19 +142,19 @@ void Sample::drawGrid()
 {
 	float o	 = -0.05;		// offset
 	for (int n=-100; n <= 100; n+=10 ) {
-		drawLine3D ( n, o,-100, n, o,100, .5,.5,.5, .3);
-		drawLine3D (-100, o, n, 100, o, n, .5, .5, .5, .3);
+		drawLine3D ( Vec3F(n, o,-100), Vec3F(n, o,100), Vec4F(.5,.5,.5, .3));
+		drawLine3D ( Vec3F(-100, o,n), Vec3F(100,o, n), Vec4F(.5, .5, .5, .3));
 	}
-	Vector3DF p(-10,0,0);
-	drawLine3D ( p, p+Vector3DF(1,0,0), Vector4DF(1,0,0,1) );
-	drawLine3D ( p, p+Vector3DF(0,1,0), Vector4DF(0,1,0,1) );
-	drawLine3D ( p, p+Vector3DF(0,0,1), Vector4DF(0,0,1,1));
+	Vec3F p(-10,0,0);
+	drawLine3D ( p, p+Vec3F(1,0,0), Vec4F(1,0,0,1) );
+	drawLine3D ( p, p+Vec3F(0,1,0), Vec4F(0,1,0,1) );
+	drawLine3D ( p, p+Vec3F(0,0,1), Vec4F(0,0,1,1));
 }
 void Sample::drawPnts()
 {
-	Vector3DI i;
-	Vector3DF y, p, pl;
-	Vector3DF offs(0, 0, -5);
+	Vec3I i;
+	Vec3F y, p, pl;
+	Vec3F offs(0, 0, -5);
 	int n, nl;
 
 	for (i.x = m_pnt_min.x; i.x <= m_pnt_max.x; i.x++) {
@@ -162,14 +164,14 @@ void Sample::drawPnts()
 				n = ((i.x-m_pnt_min.x) * m_pnt_res.y + (i.y-m_pnt_min.y)) * m_pnt_res.z + (i.z-m_pnt_min.z);
 				y.Set(0,.1,0); y *= m_input_rot[n];				// get orientation				
 				p = m_input_pos[n] + offs;
-				drawCircle3D( p, p+y, 0.05, Vector4DF(1,1,1,1) );
-				drawLine3D( p, p+y, Vector4DF(0,1,0,1) );
+				drawCircle3D( p, p+y, 0.05, Vec4F(1,1,1,1) );
+				drawLine3D( p, p+y, Vec4F(0,1,0,1) );
 				
 				// draw rails (lines)
 				if ( i.x > m_pnt_min.x && (i.z==m_pnt_min.z || i.z==m_pnt_max.z) && (i.y==m_pnt_min.y || i.y==m_pnt_max.y)) {
 					nl = n - (m_pnt_res.y * m_pnt_res.z);		// previous x pnt
 					pl = m_input_pos[nl] + offs;
-					drawLine3D ( p, pl, Vector4DF(1,1,1,0.7) );
+					drawLine3D ( p, pl, Vec4F(1,1,1,0.7) );
 				}
 			}
 		}
@@ -178,9 +180,9 @@ void Sample::drawPnts()
 
 void Sample::drawResult()
 {
-	Vector3DI i;
-	Vector3DF y, p, pl;
-	Vector3DF offs(0, 0, 5);
+	Vec3I i;
+	Vec3F y, p, pl;
+	Vec3F offs(0, 0, 5);
 	int n, nl;
 
 	for (i.x = m_pnt_min.x; i.x <= m_pnt_max.x; i.x++) {
@@ -190,14 +192,14 @@ void Sample::drawResult()
 				n = ((i.x - m_pnt_min.x) * m_pnt_res.y + (i.y - m_pnt_min.y)) * m_pnt_res.z + (i.z - m_pnt_min.z);
 				y.Set(0, .1, 0); y *= m_rot[n];					// get orientation				
 				p = m_pos[n] + offs;
-				drawCircle3D(p, p + y, 0.05, Vector4DF(1, 1, 0, 1));
-				drawLine3D(p, p + y, Vector4DF(0, 1, 0, 1));
+				drawCircle3D(p, p + y, 0.05, Vec4F(1, 1, 0, 1));
+				drawLine3D(p, p + y, Vec4F(0, 1, 0, 1));
 
 				// draw rails (lines)
 				if (i.x > m_pnt_min.x && (i.z == m_pnt_min.z || i.z == m_pnt_max.z) && (i.y == m_pnt_min.y || i.y == m_pnt_max.y)) {
 					nl = n - (m_pnt_res.y * m_pnt_res.z);		// previous x pnt
 					pl = m_pos[nl] + offs;
-					drawLine3D(p, pl, Vector4DF(1, 1, 0, 0.7));
+					drawLine3D(p, pl, Vec4F(1, 1, 0, 0.7));
 				}
 			}
 		}
@@ -216,10 +218,10 @@ void Sample::StartOutput ()
 
 void Sample::DeformBend ( )
 {
-	Vector3DF p, s, c;
-	Vector3DF dp;
+	Vec3F p, s, c;
+	Vec3F dp;
 	Quaternion q,r1,r2;
-	Vector3DF d;
+	Vec3F d;
 	float v, a0, a1, r, bsgn;
 	
 	// Bending moves the original geometry along a displaced circle:
@@ -250,19 +252,19 @@ void Sample::DeformBend ( )
 	a0 = -fabs(ang) * ctr / sz;			// a9 = base angle = fractional of bend angle
 	a1 = fabs(ang) + a0;
 	if ( fabs(a0) > a1 ) {
-		c = Vector3DF(ctr, bsgn * ctr / tan(-a0 * DEGtoRAD), 0);		// bend center (better numerically with a0)
+		c = Vec3F(ctr, bsgn * ctr / tan(-a0 * DEGtoRAD), 0);		// bend center (better numerically with a0)
 	} else {
-		c = Vector3DF(ctr, bsgn * (sz-ctr) / tan( a1 * DEGtoRAD), 0);	// bend center (better numerically with a1)
+		c = Vec3F(ctr, bsgn * (sz-ctr) / tan( a1 * DEGtoRAD), 0);	// bend center (better numerically with a1)
 	}
 	r = c.Length();
 
 	for (int n = 0; n < m_pos.size(); n++) {		
 		p = m_pos[n];
 		v = p.x / sz;								// bend fraction (0 < v < 1)
-		s = Vector3DF(0, -r * bsgn, 0);
+		s = Vec3F(0, -r * bsgn, 0);
 		
 		p.x = 0;									// move cross-section to 0
-		r1.fromAngleAxis(  (a0 + v*(a1-a0)) * bsgn * DEGtoRAD, Vector3DF(0,0,1) );		// quaternion rotation (Z-axis)
+		r1.fromAngleAxis(  (a0 + v*(a1-a0)) * bsgn * DEGtoRAD, Vec3F(0,0,1) );		// quaternion rotation (Z-axis)
 		p *= r1;									// rotate cross-section		
 		p += c + (s * r1);							// bend - shift section onto the circle
 
@@ -273,9 +275,9 @@ void Sample::DeformBend ( )
 
 void Sample::DeformTwist()
 {
-	Vector3DF p;
-	Vector3DF dp;
-	Vector3DF u;
+	Vec3F p;
+	Vec3F dp;
+	Vec3F u;
 	Quaternion q,q1,q2,q3;
  
 	// Twist is simply a rotation along the twist axis
@@ -288,9 +290,9 @@ void Sample::DeformTwist()
 	
 		p = m_pos[n]-m_twist_ctr;
 
-		q1.fromAngleAxis ( p.x*m_twist_amt.x / m_twist_size.x * DEGtoRAD, Vector3DF(1, 0, 0));	
-		q2.fromAngleAxis ( p.y*m_twist_amt.y / m_twist_size.y * DEGtoRAD, Vector3DF(0, 1, 0));	
-		q3.fromAngleAxis ( p.z*m_twist_amt.z / m_twist_size.z * DEGtoRAD, Vector3DF(0, 0, 1));	
+		q1.fromAngleAxis ( p.x*m_twist_amt.x / m_twist_size.x * DEGtoRAD, Vec3F(1, 0, 0));	
+		q2.fromAngleAxis ( p.y*m_twist_amt.y / m_twist_size.y * DEGtoRAD, Vec3F(0, 1, 0));	
+		q3.fromAngleAxis ( p.z*m_twist_amt.z / m_twist_size.z * DEGtoRAD, Vec3F(0, 0, 1));	
 		q1 = q3*q2*q1;
 
 		p *= q1;
@@ -303,9 +305,9 @@ void Sample::DeformTwist()
 
 void Sample::DeformFold ()
 {
-	Vector3DF p;
-	Vector3DF dp;
-	Vector3DF u;
+	Vec3F p;
+	Vec3F dp;
+	Vec3F u;
 	Quaternion q, q1, q2, q3, qx;
 
 	// Folding is a constant rotation that is neg/pos on either side of the axis,
@@ -315,9 +317,9 @@ void Sample::DeformFold ()
 	//     a\/a
 	//  <---0----> z-axis     0 = origin
     //
-	q1.fromAngleAxis( m_fold_amt.x * DEGtoRAD, Vector3DF(1, 0, 0));	
-	q2.fromAngleAxis( m_fold_amt.y * DEGtoRAD, Vector3DF(0, 1, 0));	
-	q3.fromAngleAxis( m_fold_amt.z * DEGtoRAD, Vector3DF(0, 0, 1));	
+	q1.fromAngleAxis( m_fold_amt.x * DEGtoRAD, Vec3F(1, 0, 0));	
+	q2.fromAngleAxis( m_fold_amt.y * DEGtoRAD, Vec3F(0, 1, 0));	
+	q3.fromAngleAxis( m_fold_amt.z * DEGtoRAD, Vec3F(0, 0, 1));	
 
 	for (int n = 0; n < m_pos.size(); n++) {
 
@@ -336,22 +338,21 @@ void Sample::DeformFold ()
 
 void Sample::display ()
 {	
-	Vector3DF pnt;
-	Vector4DF clr;
+	Vec3F pnt;
+	Vec4F clr;
 
 	int w = getWidth();
 	int h = getHeight();
 
 	clearGL();
 
-	start2D();
-		setview2D(getWidth(), getHeight());
-		drawText(10, 20, "Input:", 1,1,1,1);
-		drawText(10, 35, "  Orbit cam  Right-mouse drag", 1,1,1,1);
-		drawText(10, 50, "  Deform     Left-mouse drag", 1,1,1,1);
-		drawText(10, 65, "  0          Fold", 1,1,1,1);				
-		drawText(10, 80, "  1          Twist", 1,1,1,1);				
-		drawText(10, 95, "  2          Bend", 1,1,1,1);
+	start2D( w, h );		
+		drawText( Vec2F(10, 20), "Input:", Vec4F(1,1,1,1));
+		drawText( Vec2F(10, 35), "  Orbit cam  Right-mouse drag", Vec4F(1,1,1,1));
+		drawText( Vec2F(10, 50), "  Deform     Left-mouse drag", Vec4F(1,1,1,1));
+		drawText( Vec2F(10, 65), "  1          Fold", Vec4F(1,1,1,1));				
+		drawText( Vec2F(10, 80), "  2          Twist", Vec4F(1,1,1,1));				
+		drawText( Vec2F(10, 95), "  3          Bend", Vec4F(1,1,1,1));
 	end2D();
 
 
@@ -370,8 +371,8 @@ void Sample::display ()
 
 	end3D();
 
-	draw3D ();
-	draw2D (); 	
+	drawAll ();
+	
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
 
@@ -394,7 +395,7 @@ void Sample::motion (AppEnum button, int x, int y, int dx, int dy)
 	// Get camera for scene
 	bool shift = (getMods() & KMOD_SHIFT);		// Shift-key to modify light
 	float fine = 0.5f;
-	Vector3DF dang; 
+	Vec3F dang; 
 
 	switch ( mouse_down ) {	
 	case AppEnum::BUTTON_LEFT:  {	
@@ -411,17 +412,17 @@ void Sample::motion (AppEnum button, int x, int y, int dx, int dy)
 		float zoom = (m_cam->getOrbitDist() - m_cam->getDolly()) * 0.0003f;
 		m_cam->moveRelative ( float(dx) * zoom, float(-dy) * zoom, 0 );	
 		#ifdef HIT_PLANE
-			Vector3DF hit = intersectLinePlane ( m_cam->getPos(), m_cam->to_pos, Vector3DF(0,0,0), Vector3DF(0,1,0) );
-			m_cam->setOrbit ( m_cam->getAng(), hit, m_cam->getOrbitDist(), m_cam->getDolly() );		
+			Vec3F hit = intersectLinePlane ( m_cam->getPos(), m_cam->to_pos, Vec3F(0,0,0), Vec3F(0,1,0) );
+			m_cam->SetOrbit ( m_cam->getAng(), hit, m_cam->getOrbitDist(), m_cam->getDolly() );		
 		#endif
 		} break; 
 
 	case AppEnum::BUTTON_RIGHT: {
 		// Adjust orbit angles
-		Vector3DF angs = m_cam->getAng();
+		Vec3F angs = m_cam->getAng();
 		angs.x += dx*0.2f*fine;
 		angs.y -= dy*0.2f*fine;				
-		m_cam->setOrbit ( angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly() );
+		m_cam->SetOrbit ( angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly() );
 		} break;	
 
 	}
@@ -436,7 +437,7 @@ void Sample::mousewheel(int delta)
 	float zoom = (dist - dolly) * 0.001f;
 	dist -= delta * zoom * zoomamt;
 
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);		
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);		
 }
 
 
@@ -459,8 +460,7 @@ void Sample::reshape (int w, int h)
 	setview2D ( w, h );
 
 	m_cam->setAspect(float(w) / float(h));
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
-	m_cam->updateMatricies();
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
 		
 	appPostRedisplay();	
 }

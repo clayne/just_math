@@ -21,10 +21,14 @@
 //
 
 // Sample utils
-#include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
 #include <GL/glew.h>
 #include <algorithm>
+
+#include "main.h"			// window system 
+#include "gxlib.h"		// 2D rendering
+using namespace glib;
+
+#include "geom_helper.h"
 
 #define V_3DDDA		0
 
@@ -40,7 +44,7 @@ public:
 	virtual void mouse(AppEnum button, AppEnum state, int mods, int x, int y);
 	virtual void mousewheel(int delta);
 
-	void		allocVoxels(int id, Vector3DI res);
+	void		allocVoxels(int id, Vec3I res);
 	void		clearVoxels(int id);
 	void		setVoxel(int id, int x, int y, int z, char val);
 	void		drawVoxels(int id);
@@ -53,13 +57,13 @@ public:
 	int			m_adjust, m_voxshow;
 
 	Camera3D*	m_cam;
-	Vector3DF	m_goal;
+	Vec3F	m_goal;
 	
-	Vector3DF	m_vmin, m_vmax;
-	Vector3DI	m_vres;
+	Vec3F	m_vmin, m_vmax;
+	Vec3I	m_vres;
 
-	Vector3DF	line[2];
-	Vector3DF	m_pnt;		// test point
+	Vec3F	line[2];
+	Vec3F	m_pnt;		// test point
 
 	char*		vox[5];
 
@@ -78,12 +82,12 @@ bool Sample::init ()
 	
 	addSearchPath(ASSET_PATH);
 	init2D ( "arial" );
-	setText(18,1);
+	setTextSz (18,1);
 	setview2D ( w, h );	
 
 	m_cam = new Camera3D;
 	m_cam->setNearFar ( 1, 2000 );
-	m_cam->setOrbit ( Vector3DF(140,30,0), Vector3DF(32,16,32), 400, 70 );
+	m_cam->SetOrbit ( Vec3F(140,30,0), Vec3F(32,16,32), 400, 70 );
 	reshape( w, h );
 	m_adjust = -1;
 
@@ -105,7 +109,7 @@ bool Sample::init ()
 	return true;
 }
 
-void Sample::allocVoxels(int id, Vector3DI res)
+void Sample::allocVoxels(int id, Vec3I res)
 {
 	if (vox[id] != 0x0) free(vox[id]);
 	vox[id] = (char*) malloc(res.x*res.y*res.z * sizeof(char));
@@ -127,8 +131,8 @@ void Sample::setVoxel(int id, int x, int y, int z, char val)
 }
 void Sample::drawVoxels(int id)
 {
-	Vector3DF p, d;
-	Vector3DF o(0.01, 0.01, 0.01f);
+	Vec3F p, d;
+	Vec3F o(0.01, 0.01, 0.01f);
 	d = (m_vmax - m_vmin) / m_vres;
 	
 	m_voxel_count = 0;
@@ -141,25 +145,25 @@ void Sample::drawVoxels(int id)
 				p.Set(m_vmin.x + x*(m_vmax.x - m_vmin.x) / m_vres.x, m_vmin.y + y*(m_vmax.y - m_vmin.y) / m_vres.y, m_vmin.z + z*(m_vmax.z - m_vmin.z) / m_vres.z);
 				if (v[i] != 0) {
 					m_voxel_count++;
-					drawCube3D(p + o, p + d - o, 2 * float(x) / m_vres.x, 2 * float(y) / m_vres.y, 2 * float(z) / m_vres.z, 1.0);
+					drawCube3D ( p + o, p + d - o, Vec4F( float(x)/m_vres.x, float(y)/m_vres.y, float(z)/ m_vres.z, 1.0) );
 				}
 			}
 }
 
 
-Vector3DF fabs3(Vector3DF f)
+Vec3F fabs3(Vec3F f)
 {
-	return Vector3DF(abs(f.x), abs(f.y), abs(f.z));
+	return Vec3F(abs(f.x), abs(f.y), abs(f.z));
 }
-Vector3DF floor3(Vector3DF f)
+Vec3F floor3(Vec3F f)
 {
-	return Vector3DF(int(f.x), int(f.y), int(f.z));
+	return Vec3F(int(f.x), int(f.y), int(f.z));
 }
 
 void Sample::Run3DDDA ()
 {	
 	float t, tend;
-	Vector3DF d, dstep, mask, s, c, v[2];
+	Vec3F d, dstep, mask, s, c, v[2];
 
 	clearVoxels ( V_3DDDA );
 
@@ -186,8 +190,8 @@ void Sample::Run3DDDA ()
 
 	while (t < tend) {
 		setVoxel(V_3DDDA, c.x, c.y, c.z, 1);
-		mask = (s.x < s.y) ? ((s.x < s.z) ? Vector3DF(1, 0, 0) : Vector3DF(0, 0, 1)) : 	 // choose next voxel (branchless)
-							 ((s.y < s.z) ? Vector3DF(0, 1, 0) : Vector3DF(0, 0, 1));
+		mask = (s.x < s.y) ? ((s.x < s.z) ? Vec3F(1, 0, 0) : Vec3F(0, 0, 1)) : 	 // choose next voxel (branchless)
+							 ((s.y < s.z) ? Vec3F(0, 1, 0) : Vec3F(0, 0, 1));
 		t = mask.x ? s.x : (mask.y ? s.y : s.z);		// advance t
 		s += mask / d;						// advance x/y/z intercepts by the inverse normal (not obvious)
 		c += mask * dstep;					// advance to next voxel
@@ -199,71 +203,67 @@ void Sample::Run3DDDA ()
 
 void Sample::display()
 {
-	Vector3DF a,b,c;
-	Vector3DF p, q, d;
+	Vec3F a,b,c;
+	Vec3F p, q, d;
+	int w = getWidth(), h = getHeight();
+
 
 	clearGL();
 
 	// draw text
-	start2D();
-		setview2D(getWidth(), getHeight());
-		drawText(10, 20, "Input:", 1,1,1,1);
-		drawText(10, 35, "  Orbit view      Right-mouse drag", 1,1,1,1);
-		drawText(10, 50, "  Move end X/Y    Left-click+move circles", 1,1,1,1);		
-		drawText(10, 65, "  Move end Z      Right-click+move circles", 1,1,1,1);		
+	start2D( w, h );		
+		drawText( Vec2F(10, 20), "Input:", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10, 35), "  Orbit view      Right-drag background", Vec4F(1,1,1,1));
+		drawText( Vec2F(10, 50), "  Move end X/Y    Left-drag + Move circles", Vec4F(1,1,1,1));		
+		drawText( Vec2F(10, 65), "  Move end Z      Right-drag + Move circles", Vec4F(1,1,1,1));		
 		char buf[1024];
-		drawText(10, 80, "Voxels:", 1,1,1,1);
-		sprintf(buf, "  Total: %d", m_vres.x*m_vres.y*m_vres.z); drawText(10, 95, buf, 1, 1, 1, 1);
-		sprintf(buf, "  Set:   %d", m_voxel_set);	drawText(10, 110, buf, 1, 1, 1, 1);
-	end();
-	
+		drawText( Vec2F(10, 80), "Voxels:", Vec4F(1,1,1,1) );
+		sprintf(buf, "  Total: %d", m_vres.x*m_vres.y*m_vres.z); drawText( Vec2F(10, 95), buf, Vec4F(1, 1, 1, 1) );
+		sprintf(buf, "  Set:   %d", m_voxel_set);	drawText( Vec2F(10, 110), buf, Vec4F(1, 1, 1, 1) );
+	end2D();
+
+
 	// draw in 3D
 	start3D(m_cam);
-		setLight(S3D, 20, 100, 20);
+		setLight3D ( Vec3F(20, 100, 20), Vec4F(1,1,1,1) );
 
 		// sketch a grid
 		for (int z = 0; z < m_vres.z; z++)
 			for (int x = 0; x < m_vres.x; x++) {
 				p.Set(m_vmin.x + x*(m_vmax.x - m_vmin.x) / m_vres.x, 0, m_vmin.z + z*(m_vmax.z - m_vmin.z) / m_vres.z);
 				d = (m_vmax - m_vmin) / m_vres; d.y = 0;
-				drawBox3D(p, p + d, 1, 1, 1, 0.05);
+				drawBox3D(p, p + d, Vec4F(1, 1, 1, 0.05) );
 			}
 
 		// world axes
-		a = Vector3DF(5, 0, 0); b = Vector3DF(0, 5, 0); c = Vector3DF(0, 0, 5);
-		p = Vector3DF(0.f, 0.1f, 0.f);
-		drawLine3D(p.x, p.y, p.z, p.x + a.x, p.y + a.y, p.z + a.z, 1, 0, 0, 1);
-		drawLine3D(p.x, p.y, p.z, p.x + b.x, p.y + b.y, p.z + b.z, 0, 1, 0, 1);
-		drawLine3D(p.x, p.y, p.z, p.x + c.x, p.y + c.y, p.z + c.z, 0, 0, 1, 1);
+		a = Vec3F(5, 0, 0); b = Vec3F(0, 5, 0); c = Vec3F(0, 0, 5);
+		p = Vec3F(0.f, 0.1f, 0.f);
+		drawLine3D( p, p+a, Vec4F(1, 0, 0, 1));
+		drawLine3D( p, p+b, Vec4F(0, 1, 0, 1));
+		drawLine3D( p, p+c, Vec4F(0, 0, 1, 1));		
 	
 		// draw line to be voxelized
-		drawLine3D(line[0].x, line[0].y, line[0].z, line[1].x, line[1].y, line[1].z, 1, 1, 0, 1);		// edges
+		drawLine3D ( line[0], line[1], Vec4F(1, 1, 0, 1) );		// edges
 
 		// draw voxels
-		drawVoxels(m_voxshow);
+		drawVoxels (m_voxshow);
+		
+		Vec4F clr = (m_adjust==0) ? Vec4F(.5,.5,.5,1) : Vec4F(1,1,0,1);
+		drawCircle3D (line[0], m_cam->getPos()-line[0], 2.0, clr);	// corners of triangle (interactive)
+		drawCircle3D (line[1], m_cam->getPos()-line[1], 2.0, clr);
+
+		drawLine3D( line[0], Vec3F(line[0].x, 0, line[0].z), Vec4F(0.5, 0.5, 0.5, 1) );
+		drawLine3D( line[1], Vec3F(line[1].x, 0, line[1].z), Vec4F(0.5, 0.5, 0.5, 1) );
+		drawBox3D ( m_vmin, m_vmax, Vec4F(0.1, 0.1, 0.1, 1) );
 
 	end3D();
 
-	// overlay - new draw group to turn off depth testing
-	start3D(m_cam);
-		setdepth3D(false);
-		setLight(S3D, 100, 100, 100);
-		Vector4DF clr = (m_adjust==0) ? Vector4DF(.5,.5,.5,1) : Vector4DF(1,1,0,1);
-		drawCircle3D(line[0], line[0]+Vector3DF(0,1,0), 2.0, clr);	// corners of triangle (interactive)
-		drawCircle3D(line[1], line[1]+Vector3DF(0,1,0), 2.0, clr);
-
-		drawLine3D(line[0].x, line[0].y, line[0].z, line[0].x, 0, line[0].z, 0.5, 0.5, 0.5, 1);
-		drawLine3D(line[1].x, line[1].y, line[1].z, line[1].x, 0, line[1].z, 0.5, 0.5, 0.5, 1);
-		drawBox3D ( m_vmin, m_vmax, 0.1, 0.1, 0.1, 1 );
-	end();
-
-	// Use NvGui to draw in 2D/3D
-	draw3D ();										// Render the 3D drawing groups
-	drawGui (0);									// Render the GUI
-	draw2D (); 
+	// draw everything with OpenGL
+	drawAll ();
 
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
+
 
 void Sample::motion(AppEnum btn, int x, int y, int dx, int dy)
 {
@@ -275,9 +275,12 @@ void Sample::motion(AppEnum btn, int x, int y, int dx, int dy)
 			// Adjust dist
 			float dist = m_cam->getOrbitDist();
 			dist -= dy*fine;
-			m_cam->setOrbit ( m_cam->getAng(), m_cam->getToPos(), dist, m_cam->getDolly() );		
-		} else {
-			line[m_adjust] = moveHit3D(m_cam, x, y, line[m_adjust], Vector3DF(0, 1, 0)); // xz plane			
+			m_cam->SetOrbit ( m_cam->getAng(), m_cam->getToPos(), dist, m_cam->getDolly() );		
+		} else {			
+			
+			Vec3F hit = moveHit3D(m_cam, x, y, line[m_adjust], Vec3F(0, 1, 0)); // xz plane						
+			hit.y = line[m_adjust].y;		// hold y			
+			line[m_adjust] = hit;
 			Run3DDDA();
 		}		
 		appPostRedisplay();		// Update display
@@ -293,15 +296,17 @@ void Sample::motion(AppEnum btn, int x, int y, int dx, int dy)
 	
 		if ( m_adjust == -1 ) {
 			// Adjust camera orbit 
-			Vector3DF angs = m_cam->getAng();
+			Vec3F angs = m_cam->getAng();
 			angs.x += dx*0.2f*fine;
 			angs.y -= dy*0.2f*fine;				
-			m_cam->setOrbit ( angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly() );				
+			m_cam->SetOrbit ( angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly() );				
 		} else {
-			line[m_adjust] = moveHit3D(m_cam, x, y, line[m_adjust], Vector3DF(0, 0, 1));   // xy plane			
+			Vec3F hit = moveHit3D(m_cam, x, y, line[m_adjust], Vec3F(0, 0, 1));   // xy plane						
+			hit.x = line[m_adjust].x;		// hold x 
+			hit.z = line[m_adjust].z;		// hold z
+			line[m_adjust] = hit;
 			Run3DDDA();
 		}
-
 
 		appPostRedisplay();	// Update display
 		} break;
@@ -310,16 +315,18 @@ void Sample::motion(AppEnum btn, int x, int y, int dx, int dy)
 
 
 void Sample::mouse(AppEnum button, AppEnum state, int mods, int x, int y)
-{
-	if (guiHandler(button, state, x, y)) return;
+{	
 	mouse_down = (state == AppEnum::BUTTON_PRESS) ? button : -1;		// Track when we are in a mouse drag
 	m_adjust = -1;
 
 	if (state==AppEnum::BUTTON_PRESS) {		
 		// check for interaction with corners of triangle
 		for (int i=0; i < 2; i++) {
-			if ( checkHit3D (m_cam, x, y, line[i], 2.0) ) m_adjust = i;
-		}		
+
+			if ( checkHit3D (m_cam, x, y, line[i], 2.0) ) 
+				m_adjust = i;
+
+		}	
 	}
 }
 
@@ -331,7 +338,7 @@ void Sample::mousewheel(int delta)
 	float dolly = m_cam->getDolly();
 	float zoom = (dist - dolly) * 0.001f;
 	dist -= delta * zoom * zoomamt;
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);
 }
 
 
@@ -354,8 +361,8 @@ void Sample::reshape(int w, int h)
 
 	m_cam->setSize( w, h );
 	m_cam->setAspect(float(w) / float(h));	
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
-	m_cam->updateMatricies();
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
+	m_cam->updateAll();
 
 	appPostRedisplay();
 }

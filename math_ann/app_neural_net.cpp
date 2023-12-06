@@ -41,7 +41,9 @@
 #include <time.h>
 
 #include "main.h"        // window system 
-#include "nv_gui.h"      // gui system
+#include "gxlib.h"      // rendering
+using namespace glib;
+
 #include "dataptr.h"
 
 #include "neural_net.h"
@@ -78,7 +80,7 @@ public:
   int       m_numinst;
   double    m_error;
   
-  Vector3DF m_pnt[512];  
+  Vec3F m_pnt[512];  
   int       m_numpnts;  
   int       m_frame; 
 
@@ -181,7 +183,7 @@ bool Sample::init()
 
     #ifdef USE_OPENGL
       init2D("arial");
-      setText(18,1);
+      setTextSz (18,1);
     #endif
 
     // Clear plot pnts
@@ -189,7 +191,7 @@ bool Sample::init()
     m_error = 0;
     m_numpnts = 256;
     for (int n=0; n < m_numpnts; n++) {
-        m_pnt[n] = Vector3DF(0,0,0);
+        m_pnt[n] = Vec3F(0,0,0);
     }
 
     // Create training data buffers
@@ -217,6 +219,8 @@ bool Sample::init()
 
     m_frame = 0;
 
+    m_run = true;
+
     return true;
 }
 
@@ -226,7 +230,7 @@ void Sample::display()
     int ret;
     float md= 0.0;    
     char savename[256] = {'\0'};
-    
+    int w = getWidth(), h = getHeight();    
 
     if (m_run) {
 
@@ -246,17 +250,16 @@ void Sample::display()
     // Interactive rendering (opengl only)
     #ifdef USE_OPENGL
     clearGL();
-    start2D();
-        setview2D(getWidth(), getHeight());  
-
+    start2D( w, h );
+        
         char msg[256];
         sprintf ( msg, "Training instances: %d\n", m_numinst );
-        drawText ( 10, 10, msg, 1,1,1,1);
+        drawText ( Vec2F(10, 10), msg, Vec4F(1,1,1,1) );
         sprintf ( msg, "Mean squared error: %f\n", (float) m_error );
-        drawText ( 10, 30, msg, 1,1,1,1);        
+        drawText ( Vec2F(10, 30), msg, Vec4F(1,1,1,1) );        
 
-        int h = getHeight()/2;
-        int w = getWidth();
+        h /= 2;
+
         float y, yl = 0;
         float sz, x, dx = float(w) / m_numpnts;        
 
@@ -265,7 +268,7 @@ void Sample::display()
         sz = h*0.8;
         for (int p=1; p < m_numpnts; p++) {                    
             y = sin(float(p)*3.1415*2/m_numpnts);
-            drawLine ( x, h - y*sz, x-dx, h - yl*sz, 0,.3,.3,1);
+            drawLine ( Vec2F(x, h - y*sz), Vec2F(x-dx, h - yl*sz), Vec4F(0,.3,.3,1) );
             x += dx;
             yl = y;
         }
@@ -273,23 +276,25 @@ void Sample::display()
         // Plot network output points
         x = 0;
         sz = h*0.8;
-        drawLine ( x, h, w, h, 0,0,1,1);
+        drawLine ( Vec2F(x, h), Vec2F(w, h), Vec4F(0,0,1,1) );
         for (int p=1; p < m_numpnts; p++) {                    
-            drawLine ( x, h - m_pnt[p].x*sz, x-dx, h - m_pnt[p-1].x*sz, 1,1,1,1);
+            drawLine ( Vec2F(x, h - m_pnt[p].x*sz), Vec2F(x-dx, h - m_pnt[p-1].x*sz), Vec4F(1,1,1,1) );
             x += dx;
         }
 
         // Plot error vs training time
         x = 0;
         sz = h/200;
-        drawLine ( x, h, w, h, 0,0,1,1);
+        drawLine ( Vec2F(x, h), Vec2F(w, h), Vec4F(0,0,1,1) );
         for (int p=1; p < m_numpnts; p++) {                    
-            drawLine ( x, h - m_pnt[p].y*sz, x-dx, h - m_pnt[p-1].y*sz, 1,.5,0,1);
+            drawLine ( Vec2F(x, h - m_pnt[p].y*sz), Vec2F(x-dx, h - m_pnt[p-1].y*sz), Vec4F(1,.5,0,1) );
             x += dx;
         }
 
     end2D();
-    draw2D();                    // complete 2D rendering to OpenGL
+    
+    drawAll();                    // complete 2D rendering to OpenGL
+
     #endif
 
     appPostRedisplay();    
@@ -315,8 +320,7 @@ void Sample::motion(AppEnum btn, int x, int y, int dx, int dy)
 
 
 void Sample::mouse(AppEnum button, AppEnum state, int mods, int x, int y)
-{
-  if ( guiHandler(button, state, x, y) ) return;
+{  
   mouse_down = (state == AppEnum::BUTTON_PRESS) ? button : -1;    // Track when we are in a mouse drag
 }
 

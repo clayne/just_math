@@ -41,7 +41,10 @@
 
 // Sample utils
 #include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
+#include "geom_helper.h"
+#include "gxlib.h"		// rendering
+using namespace glib;
+
 #include <GL/glew.h>
 #include <algorithm>
 
@@ -70,7 +73,7 @@ public:
 	bool		m_bRun, m_bStep;
 
 	Camera3D*	cam;
-	Vector3DF	m_goal;
+	Vec3F	m_goal;
 
 	Joints		m_joints;	
 };
@@ -87,13 +90,13 @@ void Sample::Reset ()
 	switch (m_type) {
 	case 0:					//---- Robot Arm		
 		// AddJoint: name, length, angles, freedom x,y,z
-		m_joints.AddJoint ( "J0", 1, Vector3DF(0,0,0), 0, 1, 0 );		// base: Y-axis freedom
-		m_joints.AddJoint ( "J1", 4, Vector3DF(0,0,0), 1, 0, 0 );		// arm:  X-axis freedom
-		m_joints.AddJoint ( "J2", 4, Vector3DF(0,0,0), 1, 0, 0 );
-		m_joints.AddJoint ( "J3", 2, Vector3DF(0,0,0), 1, 0, 0 );	
-		m_joints.SetLimits ( 1, Vector3DF(-45, 0, 0), Vector3DF(90, 0, 0) );	 
-		m_joints.SetLimits ( 2, Vector3DF(5, 0, 0), Vector3DF(170, 0, 0) );	 
-		m_joints.SetLimits ( 3, Vector3DF(5, 0, 0), Vector3DF(90, 0, 0) );	
+		m_joints.AddJoint ( "J0", 1, Vec3F(0,0,0), 0, 1, 0 );		// base: Y-axis freedom
+		m_joints.AddJoint ( "J1", 4, Vec3F(0,0,0), 1, 0, 0 );		// arm:  X-axis freedom
+		m_joints.AddJoint ( "J2", 4, Vec3F(0,0,0), 1, 0, 0 );
+		m_joints.AddJoint ( "J3", 2, Vec3F(0,0,0), 1, 0, 0 );	
+		m_joints.SetLimits ( 1, Vec3F(-45, 0, 0), Vec3F(90, 0, 0) );	 
+		m_joints.SetLimits ( 2, Vec3F(5, 0, 0), Vec3F(170, 0, 0) );	 
+		m_joints.SetLimits ( 3, Vec3F(5, 0, 0), Vec3F(90, 0, 0) );	
 		break;
 	
 	case 1:					//---- Human Arm			
@@ -113,13 +116,13 @@ void Sample::Reset ()
 		//    Z-axis, wrist yaw:       0=out strt,  -25=cantor inwd, +25=cantor outwd
 
 		// AddJoint: name, length, angles, freedom x,y,z
-		m_joints.AddJoint ( "back",		5, Vector3DF(0,0,0), 0, 0, 0 );					// fixed joint
-		m_joints.AddJoint ( "shoulder", 4, Vector3DF(90,0,0),1, 1, 1 );			
-		m_joints.AddJoint ( "elbow",	3, Vector3DF(0,0,0), 1, 0, 0 );
-		m_joints.AddJoint ( "wrist",	1, Vector3DF(0,0,0), 1, 0, 1 );	 
-		m_joints.SetLimits ( 1, Vector3DF(-90,  0, -60), Vector3DF(200, 90, 130) );	 	// shoulder
-		m_joints.SetLimits ( 2, Vector3DF( 5,   0,  +5), Vector3DF(150, 0,  0) );		// elbow
-		m_joints.SetLimits ( 3, Vector3DF( 0, -90, -25), Vector3DF(+40,+60,+25) );		// wrist	
+		m_joints.AddJoint ( "back",		5, Vec3F(0,0,0), 0, 0, 0 );					// fixed joint
+		m_joints.AddJoint ( "shoulder", 4, Vec3F(90,0,0),1, 1, 1 );			
+		m_joints.AddJoint ( "elbow",	3, Vec3F(0,0,0), 1, 0, 0 );
+		m_joints.AddJoint ( "wrist",	1, Vec3F(0,0,0), 1, 0, 1 );	 
+		m_joints.SetLimits ( 1, Vec3F(-90,  0, -60), Vec3F(200, 90, 130) );	 	// shoulder
+		m_joints.SetLimits ( 2, Vec3F( 5,   0,  +5), Vec3F(150, 0,  0) );		// elbow
+		m_joints.SetLimits ( 3, Vec3F( 0, -90, -25), Vec3F(+40,+60,+25) );		// wrist	
 		break;
 	}	
 
@@ -134,13 +137,13 @@ bool Sample::init ()
 	
 	addSearchPath(ASSET_PATH);
 	init2D ( "arial" );
-	setText(16,1);
-	setview2D ( w, h );	
+	setTextSz (16,1);
+	
 	glViewport ( 0, 0, w, h );
 
 	cam = new Camera3D;
 	cam->setNearFar ( 1, 2000 );
-	cam->setOrbit ( Vector3DF(40,30,0), Vector3DF(0,0,0), 70, 1 );
+	cam->SetOrbit ( Vec3F(40,30,0), Vec3F(0,0,0), 70, 1 );
 	m_adjust = -1;
 
 	m_bRun = true;
@@ -156,28 +159,11 @@ bool Sample::init ()
 
 void Sample::display()
 {
-	Vector3DF a,b,c,p;
+	Vec3F a,b,c,p;
+	int w = getWidth(), h = getHeight();
 
 	clearGL();
 	
-	// info display
-	start2D();
-		setview2D(getWidth(), getHeight());
-		drawText(10, 20, "Input:", 1,1,1,1);
-		drawText(10, 35, "  Orbit view	     Right-click drag", 1,1,1,1);		
-		drawText(10, 50, "  Run              Spacebar.", 1,1,1,1);
-		drawText(10, 65, "  Type of body     'T' key. Robot or human.", 1,1,1,1);
-		drawText(10, 80, "  Move end X/Y     Left-click drag purple cube", 1,1,1,1);
-		drawText(10, 95, "  Move end Z       Right-click drag purple cube", 1,1,1,1);				
-		drawText(10, 110, "  Single step      S key. Then move cube. Press S again.", 1,1,1,1);
-		drawText(10, 130, "Inverse Kinematics:", 1,1,1,1 );
-
-		char msg[128];
-		sprintf ( msg, "%s, %s", (m_type==0) ? "robot" : "human", m_bRun ? "running" : "single step" );
-		Vector3DF clr = m_bRun ? Vector3DF(0,1,0) : Vector3DF(1,0.5,0);
-		drawText(200, 130, msg, clr.x, clr.y, clr.z,1);		
-	end2D();
-
 	// run inverse kinematics
 	if (m_bRun) 		
 		m_joints.InverseKinematics ( m_goal );
@@ -187,39 +173,54 @@ void Sample::display()
 		m_joints.InverseKinematics ( m_goal, 1 );   // 1 step
 	}
 
-
-	// draw joints
-	m_joints.Sketch( cam );
-
+	// draw 3D
 	start3D(cam);
 	
-	// sketch a grid
-	for (int i = -10; i <= 10; i++) {
-		drawLine3D(float(i),-0.01f, -10.f, float(i), -0.01f, 10.f, .2f, .2f, .2f, 1.f);
-		drawLine3D(-10.f,	-0.01f, float(i), 10.f, -0.01f, float(i), .2f, .2f, .2f, 1.f);
-	}	
-	// world axes
-	a = Vector3DF(1,0,0); b = Vector3DF(0,1,0); c = Vector3DF(0,0,1); 
-	p = Vector3DF(-10.f,-0.01f,-10.f);
-	drawLine3D ( p.x, p.y, p.z, p.x+a.x, p.y+a.y, p.z+a.z, 1, 0, 0, 1 );
-	drawLine3D ( p.x, p.y, p.z, p.x+b.x, p.y+b.y, p.z+b.z, 0, 1, 0, 1 );
-	drawLine3D ( p.x, p.y, p.z, p.x+c.x, p.y+c.y, p.z+c.z, 0, 0, 1, 1 );
-		
-	// goal
-	p = m_goal;
-	drawBox3D ( Vector3DF(p.x-0.1f, p.y-0.1f, p.z-0.1f), Vector3DF(p.x+0.1f, p.y+0.1f, p.z+0.1f), 1, 0, 1, 1 );
-	drawBox3D ( Vector3DF(p.x-0.1f, 0.f, p.z-0.1f), Vector3DF(p.x+0.1f, 0.f, p.z+0.1f), .75f, 0, .75f, 1 );
-	if ( mouse_action == MOVE_GOAL_XY )
-		drawBox3D ( Vector3DF(-10.f, 0.f, p.z-0.1f), Vector3DF(10.f, 8.f, p.z+0.1f), 1, 0, 1, 1 );
-	if ( mouse_action == MOVE_GOAL_XZ )
-		drawBox3D ( Vector3DF(-10.f, p.y-0.1f, -10.f), Vector3DF(10.f, p.y+0.1f, 10.f), 1, 0, 1, 1 );
+		// draw joints
+		m_joints.Sketch( cam );
 
-	end3D();
+		// sketch a grid
+		for (int i = -10; i <= 10; i++) {
+			drawLine3D( Vec3F(float(i),-0.01f, -10.f), Vec3F(float(i), -0.01f, 10.f), Vec4F(.2f, .2f, .2f, 1.f) );
+			drawLine3D( Vec3F(-10.f,	-0.01f, float(i)), Vec3F( 10.f, -0.01f, float(i)), Vec4F(.2f, .2f, .2f, 1.f) );
+		}	
+		// world axes
+		a = Vec3F(1,0,0); b = Vec3F(0,1,0); c = Vec3F(0,0,1); 
+		p = Vec3F(-10.f,-0.01f,-10.f);
+		drawLine3D ( p, p+a, Vec4F(1, 0, 0, 1) );
+		drawLine3D ( p, p+b, Vec4F(0, 1, 0, 1) );
+		drawLine3D ( p, p+c, Vec4F(0, 0, 1, 1) );
+	
+		// goal
+		p = m_goal;
+		drawBox3D ( Vec3F(p.x-0.1f, p.y-0.1f, p.z-0.1f), Vec3F(p.x+0.1f, p.y+0.1f, p.z+0.1f), Vec4F(1, 0, 1, 1) );
+		drawBox3D ( Vec3F(p.x-0.1f, 0.f, p.z-0.1f), Vec3F(p.x+0.1f, 0.f, p.z+0.1f), Vec4F(.75f, 0, .75f, 1) );
+		if ( mouse_action == MOVE_GOAL_XY )
+			drawBox3D ( Vec3F(-10.f, 0.f, p.z-0.1f), Vec3F(10.f, 8.f, p.z+0.1f), Vec4F(1, 0, 1, 1) );
+		if ( mouse_action == MOVE_GOAL_XZ )
+			drawBox3D ( Vec3F(-10.f, p.y-0.1f, -10.f), Vec3F(10.f, p.y+0.1f, 10.f), Vec4F(1, 0, 1, 1) );
 
-	// Draw in 2D/3D
-	draw3D ();										// Render the 3D drawing groups
-	drawGui (0);									// Render the GUI
-	draw2D (); 
+	end3D(); 
+
+	// info display
+	start2D( w, h );
+		drawText( Vec2F(10, 20), "Input:", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10, 35), "  Orbit view	     Right-click drag", Vec4F(1,1,1,1) );		
+		drawText( Vec2F(10, 50), "  Run              Spacebar.", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10, 65), "  Type of body     'T' key. Robot or human.", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10, 80), "  Move end X/Y     Left-click drag purple cube", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10, 95), "  Move end Z       Right-click drag purple cube", Vec4F(1,1,1,1) );				
+		drawText( Vec2F(10, 110), "  Single step      S key. Then move cube. Press S again.", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10, 130), "Inverse Kinematics:", Vec4F(1,1,1,1)  );
+
+		char msg[128];
+		sprintf ( msg, "%s, %s", (m_type==0) ? "robot" : "human", m_bRun ? "running" : "single step" );
+		Vec3F clr = m_bRun ? Vec3F(0,1,0) : Vec3F(1,0.5,0);
+		drawText( Vec2F(200, 130), msg, clr );		
+	end2D();
+
+	// render in opengl
+	drawAll();
 
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
@@ -232,7 +233,7 @@ void Sample::mousewheel(int delta)
 	float dolly = cam->getDolly();
 	float zoom = (dist - dolly) * 0.001f;
 	dist -= delta * zoom * zoomamt;
-	cam->setOrbit(cam->getAng(), cam->getToPos(), dist, dolly);
+	cam->SetOrbit(cam->getAng(), cam->getToPos(), dist, dolly);
 	appPostRedisplay();
 }
 
@@ -249,8 +250,8 @@ void Sample::motion( AppEnum button, int x, int y, int dx, int dy)
 
 		if ( mouse_action == MOVE_GOAL_XZ ) {
 			int w = getWidth(), h = getHeight();
-			Vector3DF dir = cam->inverseRay( x, y, w, h );
-			Vector3DF hit = intersectLinePlane ( cam->getPos(), cam->getPos()+dir, m_goal, Vector3DF(0,1,0) );
+			Vec3F dir = cam->inverseRay( x, y, w, h );
+			Vec3F hit = intersectLinePlane ( cam->getPos(), dir, m_goal, Vec3F(0,1,0) );
 			m_goal = hit;
 		} else {
 			if ( m_adjust != -1 ) {				
@@ -271,18 +272,18 @@ void Sample::motion( AppEnum button, int x, int y, int dx, int dy)
 
 		if ( mouse_action == MOVE_GOAL_XY ) {
 			int w = getWidth(), h = getHeight();			
-			Vector3DF dir = cam->inverseRay( x, y, w, h );
-			Vector3DF hit = intersectLinePlane ( cam->getPos(), cam->getPos()+dir, m_goal, Vector3DF(0,0,1) );
+			Vec3F dir = cam->inverseRay( x, y, w, h );
+			Vec3F hit = intersectLinePlane ( cam->getPos(), dir, m_goal, Vec3F(0,0,1) );
 			m_goal = hit;
 		} else {
 			if ( m_adjust != -1 ) {			
 				m_joints.MoveJoint ( m_adjust, 2, dx*0.01f );
 			} else {
 				// Adjust camera orbit 
-				Vector3DF angs = cam->getAng();
+				Vec3F angs = cam->getAng();
 				angs.x += dx*0.2f*fine;
 				angs.y -= dy*0.2f*fine;				
-				cam->setOrbit ( angs, cam->getToPos(), cam->getOrbitDist(), cam->getDolly() );				
+				cam->SetOrbit ( angs, cam->getToPos(), cam->getOrbitDist(), cam->getDolly() );				
 			} 		
 		}
 		appPostRedisplay();	// Update display
@@ -292,17 +293,16 @@ void Sample::motion( AppEnum button, int x, int y, int dx, int dy)
 
 void Sample::mouse ( AppEnum button, AppEnum state, int mods, int x, int y)
 {
-	if ( guiHandler ( button, state, x, y ) ) return;	
-	
 	mouse_down = (state == AppEnum::BUTTON_PRESS) ? button : -1;		// Track when we are in a mouse drag
 
 	mouse_action = 0;
 
 	int w = getWidth(), h = getHeight();
-	Vector3DF dir = cam->inverseRay( x, y, w, h );
-	Vector3DF t = intersectLineBox ( cam->getPos(), dir, m_goal-Vector3DF(0.1f,0.1f,0.1f), m_goal+Vector3DF(0.1f,0.1f,0.1f) );
+	Vec3F dir = cam->inverseRay( x, y, w, h );
+	float t;
+	bool hit = intersectLineBox ( cam->getPos(), dir, m_goal-Vec3F(0.1f,0.1f,0.1f), m_goal+Vec3F(0.1f,0.1f,0.1f), t );
 	
-	if ( t.z >= 0 && state==AppEnum::BUTTON_PRESS)
+	if ( hit && state==AppEnum::BUTTON_PRESS)
 		if (button==AppEnum::BUTTON_LEFT)
 			mouse_action = MOVE_GOAL_XZ;
 		else

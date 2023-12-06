@@ -3,7 +3,6 @@
 #include "common_defs.h"
 
 #include "wang_tiles.h"
-#include "image.h"
 #include "camera3d.h"
 
 #include <stdio.h>
@@ -78,7 +77,7 @@ bool WangTiles::LoadTileSet(const char * fileName)
 		}
 
 		mTiles[i].numPoints = freadi(fin);		
-		mTiles[i].points = new Vector2DF [mTiles[i].numPoints];
+		mTiles[i].points = new Vec2F [mTiles[i].numPoints];
 		for (int j = 0; j < mTiles[i].numPoints; j++)
 		{
 			mTiles[i].points[j].x = freadf(fin);
@@ -87,7 +86,7 @@ bool WangTiles::LoadTileSet(const char * fileName)
 		}
 
 		mTiles[i].numSubPoints = freadi(fin);
-		mTiles[i].subPoints = new Vector2DF[mTiles[i].numSubPoints];
+		mTiles[i].subPoints = new Vec2F[mTiles[i].numSubPoints];
 		for (int j = 0; j < mTiles[i].numSubPoints; j++)
 		{
 			mTiles[i].subPoints[j].x = freadf(fin);
@@ -105,7 +104,7 @@ void WangTiles::SetMaxPoints ( int p )
 {
 	mMaxPnts = p;
 	if (mPoints != 0) delete mPoints;
-	mPoints = new Vector3DF[mMaxPnts];
+	mPoints = new Vec3F[mMaxPnts];
 }
 
 void WangTiles::SetDensityFunc(float* density, int xres, int yres)
@@ -115,7 +114,7 @@ void WangTiles::SetDensityFunc(float* density, int xres, int yres)
 	mYRes = yres;
 }
 
-int WangTiles::RecurseTileImage ( Vector2DF cmin, Vector2DF cmax, float zm, float ts )
+int WangTiles::RecurseTileImage ( Vec2F cmin, Vec2F cmax, float zm, float ts )
 {
 	if (mDensity==0x0) dbgprintf ( "ERROR: Wang tiles has no density image.\n" );
 	if (mMaxPnts== 0) dbgprintf ("ERROR: Wang tiles has no max points.\n");	
@@ -148,7 +147,7 @@ void WangTiles::RecurseTileImage (Tile & t, float x, float y, int level )
 
 	// generate points
 	float px, py, v;
-	Vector3DF* basepnt = mCurrPnt;
+	Vec3F* basepnt = mCurrPnt;
 
 	for (int i = 0; i < tilePnts; i++)
 	{
@@ -181,11 +180,11 @@ void WangTiles::RecurseTileImage (Tile & t, float x, float y, int level )
 int WangTiles::Recurse3D(Camera3D* cam, float zm, float ts, float dst )
 {
 	// setup clipping to camera bounding box
-	Vector3DF ca, cb;
+	Vec3F ca, cb;
 	mCam = cam;
-	mCam->getBounds ( Vector2DF(0,0.5), Vector2DF(1,0.5), dst, ca, cb );
-	mClipMin = Vector3DF(ca.x, ca.z, 0);
-	mClipMax = Vector3DF(cb.x, cb.z, 0);
+	mCam->getBounds ( Vec2F(0,0.5), Vec2F(1,0.5), dst, ca, cb );
+	mClipMin = Vec3F(ca.x, ca.z, 0);
+	mClipMax = Vec3F(cb.x, cb.z, 0);
 
 	mZoom = zm;
 	mDist = dst;								// maximum distance for point generation
@@ -205,8 +204,8 @@ void WangTiles::Recurse3D(Tile& t, float x, float y, int level)
 	float tileSize = 1.f / powf(float(numSubtiles), float(level));
 
 	// transform tile to world space
-	Vector3DF a(x * mXRes, 0, y * mYRes);
-	Vector3DF b = a + Vector3DF(tileSize * mXRes, 1000, tileSize * mYRes);
+	Vec3F a(x * mXRes, 0, y * mYRes);
+	Vec3F b = a + Vec3F(tileSize * mXRes, 1000, tileSize * mYRes);
 
 	// check if tile is outside the camera bounding box
 	if ((b.x < mClipMin.x) || (a.x > mClipMax.x) || (b.y < mClipMin.y) || (a.y > mClipMax.y))		
@@ -225,7 +224,7 @@ void WangTiles::Recurse3D(Tile& t, float x, float y, int level)
 	// generate points
 	float px, py, v;
 	float distfactor = 1.0;
-	Vector3DF* basepnt = mCurrPnt;
+	Vec3F* basepnt = mCurrPnt;
 
 	for (int i = 0; i < tilePnts; i++)
 	{
@@ -238,7 +237,7 @@ void WangTiles::Recurse3D(Tile& t, float x, float y, int level)
 			continue;
 
 		// evaluate density function
-		distfactor = (Vector3DF(px, 0, py) - mCam->from_pos).LengthSq();
+		distfactor = (Vec3F(px, 0, py) - mCam->from_pos).LengthSq();
 		if ( distfactor < mDSQ2 )
 			distfactor = 1.0;								// full density below threshold fractional distance
 		else

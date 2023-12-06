@@ -11,7 +11,7 @@
 //    See: Arie Kaufman & Klaus Mueller, "Overview of Volume Rendering", 2005, eqn 12 & 13
 // Discretely, the integral must accumulate the color and opacity while sampling along the ray.
 // The two relevant lines of code are:
-//    	clr += Vector4DF(val.x,val.y,val.z, 0) * (1-clr.w) * alpha * kIntensity * pStep;	// accumulate color						
+//    	clr += Vec4F(val.x,val.y,val.z, 0) * (1-clr.w) * alpha * kIntensity * pStep;	// accumulate color						
 //		clr.w += alpha * kDensity * pStep;							// attenuate alpha					
 // where
 //      C(i) = val.xyz = the current voxel color, val.w is the voxel opacity
@@ -46,12 +46,14 @@
 
 
 // Sample utils
-#include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
-#include "image.h"
 #include <GL/glew.h>
 #include <algorithm>
+#include "main.h"			// window system 
+#include "gxlib.h"			// gui system
+using namespace glib;
 
+#include "imagex.h"
+#include "geom_helper.h"
 #include "dataptr.h"
 #include "common_cuda.h"
 
@@ -69,11 +71,11 @@ public:
 	virtual void mousewheel(int delta);
 	virtual void shutdown();
 
-	void		AllocBuffer(int id, Vector3DI res, int chan=1);
+	void		AllocBuffer(int id, Vec3I res, int chan=1);
 	float		getVoxel ( int id, int x, int y, int z );
-	Vector4DF	getVoxel4 ( int id, int x, int y, int z );
+	Vec4F	getVoxel4 ( int id, int x, int y, int z );
 	void		WriteFunc (int id, float time);
-	void		RaycastCPU ( Camera3D* cam, int id, Image* img );
+	void		RaycastCPU ( Camera3D* cam, int id, ImageX* img );
 
 	int			mouse_down;	
 	bool		m_run;
@@ -83,16 +85,16 @@ public:
 	int			m_peak_iter;
 
 	Camera3D*	m_cam;				// camera
-	Image*		m_img;				// output image
+	ImageX*		m_img;				// output image
 	
-	Vector3DI	m_res;				// volume res
+	Vec3I	m_res;				// volume res
 
 	DataPtr		buf[64];			// data buffers (CPU & GPU)
 };
 Sample obj;
 
 
-void Sample::AllocBuffer (int id, Vector3DI res, int chan)
+void Sample::AllocBuffer (int id, Vec3I res, int chan)
 {
 	int cnt = res.x*res.y*res.z;
 	int flags = m_run_cuda ? (DT_CPU | DT_CUMEM) : DT_CPU;
@@ -103,23 +105,23 @@ float Sample::getVoxel ( int id, int x, int y, int z )
 	float* dat = (float*) buf[id].getPtr ( (z*m_res.y + y)*m_res.x + x );
 	return *dat;
 }
-Vector4DF Sample::getVoxel4 ( int id, int x, int y, int z )
+Vec4F Sample::getVoxel4 ( int id, int x, int y, int z )
 {
-	Vector4DF* dat = (Vector4DF*) buf[id].getPtr ( (z*m_res.y + y)*m_res.x + x );	
+	Vec4F* dat = (Vec4F*) buf[id].getPtr ( (z*m_res.y + y)*m_res.x + x );	
 	return *dat;
 }
 
 void Sample::WriteFunc (int id, float time)
 {
-	Vector3DF c, d;
+	Vec3F c, d;
 	float v;
-	Vector4DF* dat = (Vector4DF*) buf[id].getData();
-	Vector4DF* vox = dat;
+	Vec4F* dat = (Vec4F*) buf[id].getData();
+	Vec4F* vox = dat;
 	
 	c = m_res / 2;
 
 	float maxv = sqrt(c.x*c.x + c.y*c.y + c.z*c.z );
-	Vector3DF s;
+	Vec3F s;
 
 	for (int z=0; z < m_res.z; z++)
 		for (int y=0; y < m_res.y; y++)
@@ -146,16 +148,17 @@ void Sample::WriteFunc (int id, float time)
 		buf[id].Commit ();			// commit to GPU
 }
 
-void Sample::RaycastCPU ( Camera3D* cam, int id, Image* img )
+void Sample::RaycastCPU ( Camera3D* cam, int id, ImageX* img )
 {
-	Vector3DF rpos, rdir;
-	Vector4DF clr;
+	Vec3F rpos, rdir;
+	Vec4F clr;
 
-	Vector3DF vmin (0,0,0);
-	Vector3DF vmax (1,1,1);
-	Vector3DF wp, dwp, p, dp, t;
-	Vector3DF vdel = m_res;
-	Vector4DF val;
+	Vec3F vmin (0,0,0);
+	Vec3F vmax (1,1,1);
+	Vec3F wp, dwp, p, dp;
+	Vec3F vdel = m_res;
+	Vec4F val;
+	float t;
 	int iter;
 	float alpha, k;
 	float pStep = 0.01;					// volume quality   - lower=better (0.01), higher=worse (0.1)
@@ -176,22 +179,21 @@ void Sample::RaycastCPU ( Camera3D* cam, int id, Image* img )
 			rdir = cam->inverseRay ( x, y, xres, yres );	
 			rdir.Normalize();
 
-			// intersect with volume box
-			t = intersectLineBox ( rpos, rdir, vmin, vmax );
+			// intersect with volume box			
 			clr.Set(0,0,0,0);
-			if ( t.z >= 0 ) {
+			if ( intersectLineBox ( rpos, rdir, vmin, vmax, t ) ) {
 				// hit volume, start raycast...		
-				wp = rpos + rdir * t.x + Vector3DF(0.001, 0.001, 0.001);		// starting point in world space				
+				wp = rpos + rdir * t + Vec3F(0.001, 0.001, 0.001);		// starting point in world space				
 				dwp = (vmax-vmin) * rdir * pStep;								// ray sample stepping in world space
-				p = Vector3DF(m_res-1) * (wp - vmin) / (vmax-vmin);				// starting point in volume				
-				dp = Vector3DF(m_res-1) * rdir * pStep;							// step delta along ray
+				p = Vec3F(m_res-1) * (wp - vmin) / (vmax-vmin);				// starting point in volume				
+				dp = Vec3F(m_res-1) * rdir * pStep;							// step delta along ray
 				
 				// accumulate along ray
 				for (iter=0; iter < 512 && clr.w < 0.95 && p.x >= 0 && p.y >= 0 && p.z >= 0 && p.x < m_res.x && p.y < m_res.y && p.z < m_res.z; iter++) {
 					val = getVoxel4 ( BUF_VOL, p.x, p.y, p.z );					// get voxel value
 					alpha = val.w;												// opacity = linear transfer
 					//alpha = 1.0 / (1+exp(-(val.w-1.0)*kWidth));				// opacity = sigmoid transfer - accentuates boundaries at 0.5
-					clr += Vector4DF(val.x,val.y,val.z, 0) * (1-clr.w) * alpha * kIntensity * pStep;	// accumulate color						
+					clr += Vec4F(val.x,val.y,val.z, 0) * (1-clr.w) * alpha * kIntensity * pStep;	// accumulate color						
 					clr.w += alpha * kDensity * pStep;							// attenuate alpha					
 					p += dp; 													// next sample
 				}	
@@ -202,7 +204,7 @@ void Sample::RaycastCPU ( Camera3D* cam, int id, Image* img )
 				clr *= 255.0;
 			}	
 			// set pixel
-			img->SetPixel ( x, y, clr.x, clr.y, clr.z );
+			img->SetPixel ( x, y, clr );
 		}
 	}
 
@@ -221,7 +223,7 @@ bool Sample::init()
 {
 	addSearchPath(ASSET_PATH);
 	init2D("arial");
-	setText(24,1);
+	setTextSz(24,1);
 
 	// options
 	m_frame = 0;
@@ -232,10 +234,10 @@ bool Sample::init()
 	m_res.Set (64, 64, 64);							// volume resolution
 
 	m_cam = new Camera3D;								// create camera
-	m_cam->setOrbit ( 30, 20, 0, Vector3DF(.5,.5,.5), 10, 1 );
+	m_cam->SetOrbit ( 30, 20, 0, Vec3F(.5,.5,.5), 10, 1 );
 
-	m_img = new Image;									// create image
-	m_img->ResizeImage ( 256, 256, ImageOp::RGB24 );	// image resolution (output)
+	m_img = new ImageX;									// create image
+	m_img->Resize ( 256, 256, ImageOp::RGB8 );	// image resolution (output)
 
 	#ifdef USE_CUDA		
 		if ( m_run_cuda ) {
@@ -253,8 +255,9 @@ bool Sample::init()
 void Sample::display()
 {
 	char msg[256];
-	Vector3DF a, b, c;
-	Vector3DF p, q, d;
+	Vec3F a, b, c;
+	Vec3F p, q, d;
+	int w = getWidth(), h = getHeight();
 
 	clearGL();
 	
@@ -267,29 +270,27 @@ void Sample::display()
 	// raycast
 	RaycastCPU ( m_cam, BUF_VOL, m_img );			// raycast volume
 
-	// draw 2D
-	start2D();
-	setview2D(getWidth(), getHeight());	
-	
-	drawImg ( m_img->getGLID(), 0, 0, getWidth(), getHeight(), 1,1,1,1 );		// draw raycast image 	
-	
-	//sprintf ( msg, "Peak iter: %d\n", m_peak_iter );
-
-	drawText ( 10, 10, msg, 1,1,1,1);
-	end2D();
-	draw2D();										// complete 2D rendering to OpenGL
-
 	// draw grid in 3D
 	start3D(m_cam);
-	setLight(S3D, 20, 100, 20);	
+	setLight3D( Vec3F(20, 100, 20), Vec4F(1,1,1,1) );	
 	for (int i=-10; i <= 10; i++ ) {
-		drawLine3D( i, 0, -10, i, 0, 10, 1,1,1, .1);
-		drawLine3D( -10, 0, i, 10, 0, i, 1,1,1, .1);
+		drawLine3D( Vec3F(i, 0, -10), Vec3F(i, 0, 10), Vec4F(1,1,1, .1) );
+		drawLine3D( Vec3F(-10, 0, i), Vec3F(10, 0, i), Vec4F(1,1,1, .1) );
 	}
-	drawBox3D ( Vector3DF(0,0,0), Vector3DF(1,1,1), 1,1,1, 0.3);
+	drawBox3D ( Vec3F(0,0,0), Vec3F(1,1,1), Vec4F(1,1,1,0.3) );
 	end3D();
 
-	draw3D();										// complete 3D rendering to OpenGL
+	// draw 2D
+	start2D( w, h );
+	
+	// draw rectangular raycast image into view
+	float margin = (w - h)/2;	
+	drawImg ( m_img, Vec2F(margin, 0), Vec2F(w-margin,h), Vec4F(1,1,1,1) );		// draw raycast image 	
+	
+	drawText ( Vec2F(10, 10), msg, Vec4F(1,1,1,1));
+	end2D();
+
+	drawAll();
 	
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
@@ -313,10 +314,10 @@ void Sample::motion(AppEnum btn, int x, int y, int dx, int dy)
 	case AppEnum::BUTTON_RIGHT: {
 
 		// Adjust camera orbit 
-		Vector3DF angs = m_cam->getAng();
+		Vec3F angs = m_cam->getAng();
 		angs.x += dx * 0.2f * fine;
 		angs.y -= dy * 0.2f * fine;
-		m_cam->setOrbit(angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());		
+		m_cam->SetOrbit(angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());		
 		appPostRedisplay();	// Update display
 	} break;
 	}
@@ -324,7 +325,6 @@ void Sample::motion(AppEnum btn, int x, int y, int dx, int dy)
 
 void Sample::mouse(AppEnum button, AppEnum state, int mods, int x, int y)
 {
-	if (guiHandler(button, state, x, y)) return;
 	mouse_down = (state == AppEnum::BUTTON_PRESS) ? button : -1;		// Track when we are in a mouse drag
 }
 
@@ -337,7 +337,7 @@ void Sample::mousewheel(int delta)
 	float zoom = (dist - dolly) * 0.001f;
 	dist -= delta * zoom * zoomamt;
 
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);
 }
 
 
@@ -357,8 +357,7 @@ void Sample::reshape(int w, int h)
 
 	m_cam->setSize( w, h );
 	m_cam->setAspect(float(w) / float(h));
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
-	m_cam->updateMatricies();
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());	
 
 	appPostRedisplay();
 }

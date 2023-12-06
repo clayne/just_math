@@ -9,8 +9,8 @@
 		int n, e, s, w;
 		int numSubtiles, numSubdivs, numPoints, numSubPoints;
 		int ** subdivs;
-		Vector2DF *points;
-		Vector2DF *subPoints;
+		Vec2F *points;
+		Vec2F *subPoints;
 	};
 	
 	class Camera3D;
@@ -23,7 +23,7 @@
 		void	SetDensityFunc ( float* density, int xres, int yres );
 		void	SetMaxPoints (int m );
 
-		int		RecurseTileImage ( Vector2DF cmin, Vector2DF cmax, float zm, float ts );
+		int		RecurseTileImage ( Vec2F cmin, Vec2F cmax, float zm, float ts );
 		void	RecurseTileImage (Tile & t, float x, float y, int level);
 
 		int		Recurse3D ( Camera3D* cam, float zm, float ts, float dst );
@@ -31,20 +31,20 @@
 		//void	Recurse3D ( Camera3D* cam, float ts );
 
 		int numPnts ()				{ return mNumPnts; }
-		Vector3DF getPnt ( int n )	{ return mPoints[n]; }
+		Vec3F getPnt ( int n )	{ return mPoints[n]; }
 
 	private:
 		
 		float		mZoom, mDist, mDSQ2;
-		Vector2DF	mClipMin, mClipMax;
+		Vec2F	mClipMin, mClipMax;
 		Camera3D*	mCam;
 
 		float*		mDensity;				// input density function
 		int			mXRes, mYRes;
 	
 		int			mNumPnts, mMaxPnts;		// output points 
-		Vector3DF*	mPoints;
-		Vector3DF*  mCurrPnt;
+		Vec3F*	mPoints;
+		Vec3F*  mCurrPnt;
 
 		Tile*		mTiles;					// wang tile data
 		int			numTiles;

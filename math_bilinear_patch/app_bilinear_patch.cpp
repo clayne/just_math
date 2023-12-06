@@ -30,7 +30,9 @@
 
 // Sample utils
 #include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
+#include "gxlib.h"		// rendering
+using namespace glib;
+
 #include "mersenne.h"
 #include <GL/glew.h>
 
@@ -46,9 +48,9 @@ public:
 	virtual void mousewheel(int delta);
 	virtual void shutdown();
 
-	bool		intersect_ray_patch (Vector3DF rpos, Vector3DF rdir, Vector3DF q00, Vector3DF q10, Vector3DF q11, Vector3DF q01, float& t, Vector3DF& n ) ;
+	bool		intersect_ray_patch (Vec3F rpos, Vec3F rdir, Vec3F q00, Vec3F q10, Vec3F q11, Vec3F q01, float& t, Vec3F& n ) ;
 
-	Vector3DF	getPatchPnt ( float u, float v );
+	Vec3F	getPatchPnt ( float u, float v );
 	void		DrawPatch ();
 	void		RaytracePatch ();	
 	void		GeneratePatch ();
@@ -56,13 +58,13 @@ public:
 	void		Resize ();
 	void		DrawGrid ();	
 	void		UpdateCamera();
-	void		MoveCamera ( char t, Vector3DF del );
+	void		MoveCamera ( char t, Vec3F del );
 
-	Vector3DF	m_p[4];			// input patch
+	Vec3F	m_p[4];			// input patch
 
 	int			m_numpnts;		
-	Vector4DF	m_pnts[16384];	// output intersections
-	Vector3DF	m_norms[16384];
+	Vec4F	m_pnts[16384];	// output intersections
+	Vec3F	m_norms[16384];
 
 	Camera3D*	m_cam;			// camera		
 	bool		m_run;
@@ -77,7 +79,7 @@ bool Sample::init()
 {
 	addSearchPath(ASSET_PATH);
 	init2D( "arial" );
-	setText( .02, 1);
+	setTextSz ( .02, 1);
 
 	m_run = true;
 
@@ -87,7 +89,7 @@ bool Sample::init()
 	m_cam = new Camera3D;								
 	m_cam->setFov ( 60 );
 	m_cam->setAspect ( 1 );	
-	m_cam->setOrbit ( -20, 20, 0, Vector3DF(0, 2, 0), 30, 1 );	
+	m_cam->SetOrbit ( -20, 20, 0, Vec3F(0, 2, 0), 30, 1 );	
 	Resize ();		
 	UpdateCamera();
 
@@ -110,12 +112,12 @@ void Sample::Resize ()
 void Sample::DrawGrid ()
 {
 	for (int i = -10; i <= 10; i++) {
-		drawLine3D(float(i),-0.01f, -10.f, float(i), -0.01f, 10.f, .2f, .2f, .2f, 1.f);
-		drawLine3D(-10.f,	-0.01f, float(i), 10.f, -0.01f, float(i), .2f, .2f, .2f, 1.f);
+		drawLine3D( Vec3F(float(i),-0.01f, -10.f), Vec3F(float(i), -0.01f, 10.f), Vec4F(.2f, .2f, .2f, 1.f) );
+		drawLine3D( Vec3F(-10.f,	-0.01f, float(i)), Vec3F(10.f, -0.01f, float(i)), Vec4F(.2f, .2f, .2f, 1.f) );
 	}	
-	drawLine3D ( 0,0,0, 1,0,0, 1,0,0,1 );
-	drawLine3D ( 0,0,0, 0,1,0, 0,1,0,1 );
-	drawLine3D ( 0,0,0, 0,0,1, 0,0,1,1 );
+	drawLine3D ( Vec3F(0,0,0), Vec3F(1,0,0), Vec4F(1,0,0,1) );
+	drawLine3D ( Vec3F(0,0,0), Vec3F(0,1,0), Vec4F(0,1,0,1) );
+	drawLine3D ( Vec3F(0,0,0), Vec3F(0,0,1), Vec4F(0,0,1,1) );
 
 }
 
@@ -124,15 +126,15 @@ void Sample::GeneratePatch ()
 	// generate a random patch by fixing the x-axis and allowing random y/z.
 	// this can possibly generate an overlapping or twisted patch. intersector handles it ok.
 	//
-	m_p[0] = Vector3DF( -1, m_rand.randF(0,1), m_rand.randF(-1,1) ) * 5.0f;
-	m_p[1] = Vector3DF( -1, m_rand.randF(0,1), m_rand.randF(-1,1) ) * 5.0f;
-	m_p[2] = Vector3DF(  1, m_rand.randF(0,1), m_rand.randF(-1,1) ) * 5.0f;
-	m_p[3] = Vector3DF(  1, m_rand.randF(0,1), m_rand.randF(-1,1) ) * 5.0f;
+	m_p[0] = Vec3F( -1, m_rand.randF(0,1), m_rand.randF(-1,1) ) * 5.0f;
+	m_p[1] = Vec3F( -1, m_rand.randF(0,1), m_rand.randF(-1,1) ) * 5.0f;
+	m_p[2] = Vec3F(  1, m_rand.randF(0,1), m_rand.randF(-1,1) ) * 5.0f;
+	m_p[3] = Vec3F(  1, m_rand.randF(0,1), m_rand.randF(-1,1) ) * 5.0f;
 }
 
-Vector3DF Sample::getPatchPnt ( float u, float v )
+Vec3F Sample::getPatchPnt ( float u, float v )
 {
-	Vector3DF a, b, c;
+	Vec3F a, b, c;
 	a = m_p[0] + (m_p[1] - m_p[0]) * u;
 	b = m_p[3] + (m_p[2] - m_p[3]) * u;
 	c = a + (b - a) * v;
@@ -143,36 +145,36 @@ Vector3DF Sample::getPatchPnt ( float u, float v )
 void Sample::DrawPatch ()
 {
 	// draw patch u,v lines
-	Vector3DF a,b;
+	Vec3F a,b;
 	for (float v=0; v <= 1.01; v += 0.1) {
 		a = getPatchPnt ( 0, v );
 		b = getPatchPnt ( 1, v );
-		drawLine3D( a, b, Vector4DF(1,1,0,1));
+		drawLine3D( a, b, Vec4F(1,1,0,1));
 	}
 	for (float u=0; u <= 1.01; u += 0.1) {
 		a = getPatchPnt ( u, 0 );
 		b = getPatchPnt ( u, 1 );
-		drawLine3D( a, b, Vector4DF(1,1,0,1));
+		drawLine3D( a, b, Vec4F(1,1,0,1));
 	}
-	a = getPatchPnt(0,0); drawLine3D ( a, Vector3DF(a.x,0,a.z), Vector4DF(.5,.5,.5,1));
-	a = getPatchPnt(1,0); drawLine3D ( a, Vector3DF(a.x,0,a.z), Vector4DF(.5,.5,.5,1));
-	a = getPatchPnt(1,1); drawLine3D ( a, Vector3DF(a.x,0,a.z), Vector4DF(.5,.5,.5,1));
-	a = getPatchPnt(0,1); drawLine3D ( a, Vector3DF(a.x,0,a.z), Vector4DF(.5,.5,.5,1));
+	a = getPatchPnt(0,0); drawLine3D ( a, Vec3F(a.x,0,a.z), Vec4F(.5,.5,.5,1));
+	a = getPatchPnt(1,0); drawLine3D ( a, Vec3F(a.x,0,a.z), Vec4F(.5,.5,.5,1));
+	a = getPatchPnt(1,1); drawLine3D ( a, Vec3F(a.x,0,a.z), Vec4F(.5,.5,.5,1));
+	a = getPatchPnt(0,1); drawLine3D ( a, Vec3F(a.x,0,a.z), Vec4F(.5,.5,.5,1));
 	
 	// draw hit points
-	Vector3DF n, V = m_cam->getDir ();
+	Vec3F n, V = m_cam->getDir ();
 	V.Normalize();
 		
-	Vector4DF clr;
+	Vec4F clr;
 	float rc = (m_run) ? 1 : 0;
 	
 	for (int p=0; p < m_numpnts; p++) {
-		a = Vector3DF ( m_pnts[p] );
-		clr = (m_pnts[p].w==1) ? Vector4DF(1, 1, rc, 1) : Vector4DF(1, 0, rc,1);
+		a = Vec3F ( m_pnts[p] );
+		clr = (m_pnts[p].w==1) ? Vec4F(1, 1, rc, 1) : Vec4F(1, 0, rc,1);
 		drawCircle3D ( a, a+V, 0.02, clr);
 
 		n = m_norms[p];
-		drawLine3D ( a, a+n*0.2f, Vector4DF(0,1,1,0.5) );
+		drawLine3D ( a, a+n*0.2f, Vec4F(0,1,1,0.5) );
 	}
 
 }
@@ -182,14 +184,14 @@ void Sample::DrawPatch ()
 // ray/bilinear patch intersect
 // - the coordinates q should be specified in clockwise order
 // 
-bool Sample::intersect_ray_patch (Vector3DF rpos, Vector3DF rdir, Vector3DF q00, Vector3DF q10, Vector3DF q11, Vector3DF q01, float& t, Vector3DF& n) 
+bool Sample::intersect_ray_patch (Vec3F rpos, Vec3F rdir, Vec3F q00, Vec3F q10, Vec3F q11, Vec3F q01, float& t, Vec3F& n) 
 {
 	float t1, v1, t2, v2;
-	Vector3DF pa, pb;
-	Vector3DF e10 = q10 - q00;
-	Vector3DF e11 = q11 - q10;
-	Vector3DF e00 = q01 - q00;
-	Vector3DF qn = e10.Cross ( (q01-q11) );   // normal of the diagonals
+	Vec3F pa, pb;
+	Vec3F e10 = q10 - q00;
+	Vec3F e11 = q11 - q10;
+	Vec3F e00 = q01 - q00;
+	Vec3F qn = e10.Cross ( (q01-q11) );   // normal of the diagonals
 	q00 -= rpos;
 	q10 -= rpos;
 	float a = q00.Cross ( rdir ).Dot ( e00 );
@@ -235,8 +237,8 @@ bool Sample::intersect_ray_patch (Vector3DF rpos, Vector3DF rdir, Vector3DF q00,
 		}
 	}
 	// surface normal
-	Vector3DF du = e10 + ((q11-q01)-e10) * v;
-	Vector3DF dv = e00 + (e11-e00) * u;
+	Vec3F du = e10 + ((q11-q01)-e10) * v;
+	Vec3F dv = e00 + (e11-e00) * u;
 	n = dv.Cross ( du );	
 	n.Normalize ();
 	
@@ -254,7 +256,7 @@ bool Sample::intersect_ray_patch (Vector3DF rpos, Vector3DF rdir, Vector3DF q00,
 void Sample::RaytracePatch ()
 {
 	float t;
-	Vector3DF rpos, rdir, n;
+	Vec3F rpos, rdir, n;
 
 	m_numpnts = 0;
 
@@ -266,7 +268,7 @@ void Sample::RaytracePatch ()
 			rdir = m_cam->inverseRay ( x, y, getWidth(), getHeight() );	
 			rdir.Normalize();
 
-			Vector3DF V = m_cam->getDir ();
+			Vec3F V = m_cam->getDir ();
 			V.Normalize();
 
 			// Intersect bilinear patch
@@ -276,7 +278,7 @@ void Sample::RaytracePatch ()
 				float side = (n.Dot ( rdir ) > 0 ) ? 0 : 1;
 
 				// record hit
-				m_pnts[ m_numpnts ] = Vector4DF( rpos + rdir * t, side );
+				m_pnts[ m_numpnts ] = Vec4F( rpos + rdir * t, side );
 				m_norms[ m_numpnts ] = n;
 				m_numpnts++;
 			}
@@ -299,14 +301,14 @@ void Sample::display()
 		DrawPatch ();
 	end3D();
 
-	draw3D();
+	drawAll();
 
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
 
 void Sample::UpdateCamera()
 {
-	Vector3DF a, t;
+	Vec3F a, t;
 	a = m_cam->getAng();
 	t = m_cam->getToPos();
 	//dbgprintf ( "angs: %3.4f %3.4f %3.4f, to: %3.4f %3.4f %3.4f\n", a.x,a.y,a.z, t.x,t.y,t.z );
@@ -332,14 +334,14 @@ void Sample::motion(AppEnum btn, int x, int y, int dx, int dy)
 	case AppEnum::BUTTON_RIGHT: {
 
 		// Adjust camera orbit 
-		Vector3DF angs = m_cam->getAng();
+		Vec3F angs = m_cam->getAng();
 		angs.x += dx * 0.2f * fine;
 		angs.y -= dy * 0.2f * fine;
-		m_cam->setOrbit(angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());		
-		m_cam->setOrbit(angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());				
+		m_cam->SetOrbit(angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());		
+		m_cam->SetOrbit(angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());				
 		UpdateCamera();
 		
-		Vector3DF to = m_cam->getToPos();
+		Vec3F to = m_cam->getToPos();
 
 		//dbgprintf ( "cam: angs %f,%f,%f  to %f,%f,%f  dist %f\n", angs.x, angs.y, angs.z, to.x, to.y, to.z, m_cam->getOrbitDist() );
 	} break;
@@ -348,8 +350,6 @@ void Sample::motion(AppEnum btn, int x, int y, int dx, int dy)
 
 void Sample::mouse(AppEnum button, AppEnum state, int mods, int x, int y)
 {
-	if (guiHandler(button, state, x, y)) return;
-	
 	mouse_down = (state == AppEnum::BUTTON_PRESS) ? button : -1;		// Track when we are in a mouse drag
 
 	if ( mouse_down==AppEnum::BUTTON_LEFT) {
@@ -365,19 +365,19 @@ void Sample::mousewheel(int delta)
 	float zoom = (dist - dolly) * 0.001f;
 	dist -= delta * zoom * zoomamt;
 
-	m_cam->setOrbit( m_cam->getAng(), m_cam->getToPos(), dist, dolly);
-	m_cam->setOrbit( m_cam->getAng(), m_cam->getToPos(), dist, dolly);
+	m_cam->SetOrbit( m_cam->getAng(), m_cam->getToPos(), dist, dolly);
+	m_cam->SetOrbit( m_cam->getAng(), m_cam->getToPos(), dist, dolly);
 
 	UpdateCamera();
 }
 
 
-void Sample::MoveCamera ( char t, Vector3DF del )
+void Sample::MoveCamera ( char t, Vec3F del )
 {
 	switch (t) {	
 	case 'p': {
 		float orbit = m_cam->getOrbitDist() - del.z;
-		m_cam->setOrbit( m_cam->getAng(), m_cam->getToPos(), orbit, m_cam->getDolly());
+		m_cam->SetOrbit( m_cam->getAng(), m_cam->getToPos(), orbit, m_cam->getDolly());
 		UpdateCamera();
 		} break;
 	case 't':
@@ -401,7 +401,7 @@ void Sample::keyboard(int keycode, AppEnum action, int mods, int x, int y)
 		break;
 	case 'f': {
 		// flip orientation of patch
-		Vector3DF t;
+		Vec3F t;
 		t = m_p[1]; m_p[1] = m_p[2]; m_p[2] = t;
 		t = m_p[0]; m_p[0] = m_p[3]; m_p[3] = t;
 		m_run = true;
@@ -409,10 +409,10 @@ void Sample::keyboard(int keycode, AppEnum action, int mods, int x, int y)
 	case ' ': 
 		m_run = !m_run;
 		break;	
-	case 'a': case 'A':		MoveCamera('t', Vector3DF(-s, 0, 0));	break;	
-	case 'd': case 'D':		MoveCamera('t', Vector3DF(+s, 0, 0));	break;
-	case 'q': case 'Q':		MoveCamera('t', Vector3DF(0, -s, 0));	break;
-	case 'z': case 'Z':		MoveCamera('t', Vector3DF(0, +s, 0));	break;
+	case 'a': case 'A':		MoveCamera('t', Vec3F(-s, 0, 0));	break;	
+	case 'd': case 'D':		MoveCamera('t', Vec3F(+s, 0, 0));	break;
+	case 'q': case 'Q':		MoveCamera('t', Vec3F(0, -s, 0));	break;
+	case 'z': case 'Z':		MoveCamera('t', Vec3F(0, +s, 0));	break;
 	};
 }
 
@@ -423,8 +423,7 @@ void Sample::reshape(int w, int h)
 
 	m_cam->setSize( w, h );
 	m_cam->setAspect(float(w) / float(h));
-	m_cam->setOrbit( m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
-	m_cam->updateMatricies();
+	m_cam->SetOrbit( m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());	
 
 	appPostRedisplay();
 }

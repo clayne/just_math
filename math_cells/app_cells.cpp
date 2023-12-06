@@ -28,14 +28,16 @@
 
 #include <time.h>
 #include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
+#include "gxlib.h"		// rendering
+using namespace glib;
+
 #include "quaternion.h"
 #include "mersenne.h"
 
 struct Cell {
-	Vector3DF	pos;
-	Vector3DF	vel;
-	Vector3DF	force;
+	Vec3F	pos;
+	Vec3F	vel;
+	Vec3F	force;
 	float		radius;
 	float		temp;
 };
@@ -68,7 +70,7 @@ public:
 
 	std::vector<Cell>	m_cells;
 
-	Vector3DF	m_center;
+	Vec3F	m_center;
 
 	Mersenne	mt;
 	float		m_time;
@@ -78,19 +80,18 @@ public:
 };
 Sample obj;
 
-
 bool Sample::init ()
 {
 	int w = getWidth(), h = getHeight();			// window width & height
 	m_run = true;
 
 	addSearchPath ( ASSET_PATH );
-	init2D ( "arial" );
-	setview2D ( w, h );	
-	setText ( 16, 1 );		
+
+	init2D ( "arial" );	
+	setTextSz ( 16, 1 );		
 	
 	m_cam = new Camera3D;
-	m_cam->setOrbit ( Vector3DF(0, 90,0), Vector3DF(0,0,0), 100, 1 );
+	m_cam->SetOrbit ( Vec3F(0, 90,0), Vec3F(0,0,0), 100, 1 );
 
 	mt.seed(164);
 
@@ -159,7 +160,7 @@ void Sample::SimCells()
 
 	float dst, r, v;
 	float a1, a2, a3, p;
-	Vector3DF n, f1, f2, ipos;
+	Vec3F n, f1, f2, ipos;
 
 	// collision detection
 	for (int i=0; i < m_cells.size(); i++) {
@@ -187,7 +188,7 @@ void Sample::SimCells()
 				// note: ideally, find the point along vel where i just touches j, not along the vector n. 
 				// using line-circle intersection, where the circle is size R (r1+r2) centered at j.
 				
-				/* Vector3DF v = m_cells[i].vel; v.Normalize();
+				/* Vec3F v = m_cells[i].vel; v.Normalize();
 				double cdn = v.Dot ( m_cells[j].pos - m_cells[i].pos );
 				double dd = m_cells[j].pos.Dot ( m_cells[j].pos );
 				double cc = m_cells[i].pos.Dot ( m_cells[i].pos );
@@ -222,8 +223,8 @@ void Sample::SimCells()
 	}
 
 	// advance
-	Vector3DF crs;
-	Vector3DF ctr (0,0,0);
+	Vec3F crs;
+	Vec3F ctr (0,0,0);
 
 	for (int i = 0; i < m_cells.size(); i++) {
 		
@@ -232,7 +233,7 @@ void Sample::SimCells()
 		n *= 1.0/r;
 
 		// vortex		
-		crs = crs.Cross ( n, Vector3DF(0,1,0) );
+		crs = crs.Cross ( n, Vec3F(0,1,0) );
 		//v = (int(m_time/200.0) % 2)==0 ? 1.0f : -1.0f;		//-- oscillating rotation
 		m_cells[i].force += crs * r * m_rotate;
 		
@@ -275,7 +276,7 @@ void Sample::DivideCells ()
 {
 	// advance
 	float a;
-	Vector3DF v;
+	Vec3F v;
 	Cell c;
 	int cnt = m_cells.size();
 	for (int i = 0; i < cnt; i++) {
@@ -299,23 +300,25 @@ void Sample::DivideCells ()
 
 void Sample::drawCells()
 {
-	Vector3DF p;
+	Vec3F p;
 	float r, t;
-	Vector4DF clr;
+	Vec4F clr;
 
-	drawCircle3D ( m_center, m_center+Vector3DF(0,1,0), m_stable_radius, Vector4DF(0.0,0.5,0.0,1));
+	Vec3F N = m_cam->getPos() - m_center;
+
+	drawCircle3D ( m_center, N, m_stable_radius, Vec4F(0.0,0.5,0.0,1));
 	if ( m_temp ) {
-		drawCircle3D(m_center, m_center + Vector3DF(0, 1, 0), m_temp_radius+ 0.5, Vector4DF(0.0,0.0,0.5, 1));
-		drawCircle3D(m_center, m_center + Vector3DF(0, 1, 0), m_temp_radius- 0.5, Vector4DF(0.5, 0.0, 0.0, 1));
-	}
-	dbgprintf ( "%f %f %f\n", m_center.x, m_center.y, m_center.z );
+		drawCircle3D(m_center, N, m_temp_radius+ 0.5, Vec4F(0.0,0.0,0.5, 1));
+		drawCircle3D(m_center, N, m_temp_radius- 0.5, Vec4F(0.5, 0.0, 0.0, 1));
+	}	
 
 	for (int n=0; n < m_cells.size(); n++) {
 		p = m_cells[n].pos;
 		r = m_cells[n].radius;
 		t = m_cells[n].temp;
-		clr = ( t == 0 || m_temp==false ) ? Vector4DF(1, 1, 1, 1) : Vector4DF( (t+1)*0.5, 0, 1-(t+1)*0.5, 1);
-		drawCircle3D( p, p+Vector3DF(0,1,0), r, clr);
+		clr = ( t == 0 || m_temp==false ) ? Vec4F(1, 1, 1, 1) : Vec4F( (t+1)*0.5, 0, 1-(t+1)*0.5, 1);
+		N = m_cam->getPos() - p;
+		drawCircle3D( p, N, r, clr);
 	}
 
 }
@@ -324,28 +327,27 @@ void Sample::drawGrid()
 {
 	float o	 = -0.05;		// offset
 	for (int n=-100; n <= 100; n+=10 ) {
-		drawLine3D ( n, o,-100, n, o,100, .5,.5,.5, .3);
-		drawLine3D (-100, o, n, 100, o, n, .5, .5, .5, .3);
+		drawLine3D ( Vec3F(n, o,-100), Vec3F(n,o,100), Vec4F(.5,.5,.5, .3) );
+		drawLine3D ( Vec3F(-100, o, n), Vec3F(100, o, n), Vec4F(.5, .5, .5, .3) );
 	}
 }
 
 
 void Sample::display ()
 {	
-	Vector3DF pnt;
-	Vector4DF clr;
+	Vec3F pnt;
+	Vec4F clr;
 
 	int w = getWidth();
 	int h = getHeight();
 
 	clearGL();
-	start2D();
-		setview2D(getWidth(), getHeight());
-		drawText(10, 20, "Input:", 1,1,1,1);
-		drawText(10, 65, "  -, +     Induce rotation left/right", 1,1,1,1);
-		drawText(10, 35, "  <, >     Increase/decrease membrane radius", 1,1,1,1);
-		drawText(10, 50, "  [, ]     Increase/decrease temperature radius", 1,1,1,1);				
-		drawText(10, 80, "  t        Turn temperature on/off", 1,1,1,1);
+	start2D( w, h );		
+		drawText( Vec2F(10, 20), "Input:", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10, 65), "  -, +     Induce rotation left/right", Vec4F(1,1,1,1));
+		drawText( Vec2F(10, 35), "  <, >     Increase/decrease membrane radius", Vec4F(1,1,1,1));
+		drawText( Vec2F(10, 50), "  [, ]     Increase/decrease temperature radius", Vec4F(1,1,1,1));				
+		drawText( Vec2F(10, 80), "  t        Turn temperature on/off", Vec4F(1,1,1,1));
 	end2D();
 
 	if (m_run) {
@@ -353,15 +355,15 @@ void Sample::display ()
 		m_time += .1;
 	}
 
-	start3D(m_cam);
+	start3D( m_cam );
 		drawGrid();
 	
 		drawCells();
 
 	end3D();
 
-	draw3D ();
-	draw2D (); 	
+	drawAll();
+
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
 
@@ -384,7 +386,7 @@ void Sample::motion (AppEnum button, int x, int y, int dx, int dy)
 	// Get camera for scene
 	bool shift = (getMods() & KMOD_SHIFT);		// Shift-key to modify light
 	float fine = 0.5f;
-	Vector3DF dang; 
+	Vec3F dang; 
 
 	switch ( mouse_down ) {	
 	case AppEnum::BUTTON_LEFT:  {	
@@ -399,10 +401,10 @@ void Sample::motion (AppEnum button, int x, int y, int dx, int dy)
 
 	case AppEnum::BUTTON_RIGHT: {
 		// Adjust orbit angles
-		Vector3DF angs = m_cam->getAng();
+		Vec3F angs = m_cam->getAng();
 		angs.x += dx*0.2f*fine;
 		angs.y -= dy*0.2f*fine;				
-		m_cam->setOrbit ( angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly() );
+		m_cam->SetOrbit ( angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly() );
 		} break;	
 
 	}
@@ -417,7 +419,7 @@ void Sample::mousewheel(int delta)
 	float zoom = (dist - dolly) * 0.001f;
 	dist -= delta * zoom * zoomamt;
 
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);		
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);		
 }
 
 
@@ -441,12 +443,10 @@ void Sample::keyboard(int keycode, AppEnum action, int mods, int x, int y)
 
 void Sample::reshape (int w, int h)
 {
-	glViewport ( 0, 0, w, h );
-	setview2D ( w, h );
+	glViewport ( 0, 0, w, h );	
 
 	m_cam->setAspect(float(w) / float(h));
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
-	m_cam->updateMatricies();
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());	
 		
 	appPostRedisplay();	
 }

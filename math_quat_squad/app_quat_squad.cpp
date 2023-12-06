@@ -37,7 +37,9 @@
 
 #include <time.h>
 #include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
+#include "gxlib.h"			// gui system
+using namespace glib;
+
 #include "vec.h"
 #include "quaternion.h"
 #include "mersenne.h"
@@ -57,7 +59,7 @@ public:
 	void		GenerateKeys(int k);
 
 	void		drawGrid();
-	void		drawOrientedBox(Quaternion& x, Vector3DF p);
+	void		drawOrientedBox(Quaternion& x, Vec3F p);
 
 	void		drawKeys(float t);
 	void		drawSlerp(float t);
@@ -67,7 +69,7 @@ public:
 
 	int			mNumKeys;
 	Quaternion	mKeyRot[10];
-	Vector3DF	mKeyPnt[10];
+	Vec3F	mKeyPnt[10];
 	Mersenne	mt;
 	float		mTime;
 
@@ -87,11 +89,11 @@ bool Sample::init ()
 	addSearchPath ( ASSET_PATH );
 	init2D ( "arial_256" );
 	setview2D ( w, h );	
-	setText ( 16, 1 );			
+	setTextSz ( 16, 1 );			
 
 	m_cam = new Camera3D;
 	m_cam->setFov ( 70 );
-	m_cam->setOrbit ( Vector3DF(20,30,0), Vector3DF(0,0,0), 200, 1 );
+	m_cam->SetOrbit ( Vec3F(20,30,0), Vec3F(0,0,0), 200, 1 );
 
 	mt.seed(124);
 
@@ -104,7 +106,7 @@ bool Sample::init ()
 
 void Sample::GenerateKeys (int k)
 {
-	Vector3DF p;
+	Vec3F p;
 	Quaternion q;
 	float a;
 
@@ -119,7 +121,7 @@ void Sample::GenerateKeys (int k)
 		a = mt.randF();
 		q.fromAngleAxis( a, p ); q.normalize();
 
- 		p = Vector3DF(0, n*4, 0);
+ 		p = Vec3F(0, n*4, 0);
 
 		mKeyRot[n] = q;
 		mKeyPnt[n] = p;
@@ -131,26 +133,26 @@ void Sample::drawGrid()
 {
 	int w = getWidth(), h = getHeight();
 	for (int n = -50; n <= 50; n += 10 ) {
-		drawLine3D ( n, 0, -50, n, 0, 50, 1, 1, 1, .7);
-		drawLine3D( -50, 0, n, 50, 0, n, 1, 1, 1, .7);
+		drawLine3D( Vec3F(n, 0, -50), Vec3F(n, 0, 50), Vec4F(1, 1, 1, .7) );
+		drawLine3D( Vec3F(-50, 0, n), Vec3F(50, 0, n), Vec4F(1, 1, 1, .7) );
 	}
 }
 
 void Sample::drawKeys(float t)
 {
-	Vector3DF p,q,r,s,v;
+	Vec3F p,q,r,s,v;
 	for (int n=0; n < mNumKeys;n++) {
-		p = mKeyPnt[n] - Vector3DF(20,0,0);
-		q = Vector3DF(1,0,0); q *= mKeyRot[n]; q += p;
-		r = Vector3DF(0,1, 0); r *= mKeyRot[n]; r += p;
-		s = Vector3DF(0, 0,1); s *= mKeyRot[n]; s += p;
-		drawLine3D ( p.x,p.y,p.z, q.x,q.y,q.z, 1,0,0,1);
-		drawLine3D ( p.x, p.y, p.z, r.x, r.y, r.z, 0, 1, 0, 1);
-		drawLine3D ( p.x, p.y, p.z, s.x, s.y, s.z, 0, 0, 1, 1);
-		drawCircle3D ( p, r, 1.0, Vector4DF(1,1,0,1));
+		p = mKeyPnt[n] - Vec3F(20,0,0);
+		q = Vec3F(1,0,0); q *= mKeyRot[n]; q += p;
+		r = Vec3F(0,1, 0); r *= mKeyRot[n]; r += p;
+		s = Vec3F(0, 0,1); s *= mKeyRot[n]; s += p;
+		drawLine3D ( p, q, Vec4F(1,0,0,1));
+		drawLine3D ( p, r, Vec4F(0,1,0,1));
+		drawLine3D ( p, s, Vec4F(0,0,1,1));
+		drawCircle3D ( p, r, 1.0, Vec4F(1,1,0,1));
 		if (n != mNumKeys-1) {
-			v = mKeyPnt[n + 1] - Vector3DF(20,0,0);
-			drawLine3D (p.x,p.y,p.z, v.x, v.y, v.z, 1,1,0, 0.5);
+			v = mKeyPnt[n + 1] - Vec3F(20,0,0);
+			drawLine3D ( p, v, Vec4F(1,1,0,0.5));
 		}
 	}
 
@@ -159,42 +161,42 @@ void Sample::drawKeys(float t)
 
 	n = int(t); m = t - n;
 	p = mKeyPnt[n] + (mKeyPnt[n + 1] - mKeyPnt[n]) * m;	// linear interpolation of translation
-	p += Vector3DF(-20,0,0);
-	drawCircle3D(p, p + Vector3DF(0, 1, 0), 0.2, Vector4DF(1, 1, 1, 1));
+	p += Vec3F(-20,0,0);
+	drawCircle3D(p, p + Vec3F(0, 1, 0), 0.2, Vec4F(1,1,1,1));
 
 }
 
-void Sample::drawOrientedBox ( Quaternion& x, Vector3DF p )
+void Sample::drawOrientedBox ( Quaternion& x, Vec3F p )
 {
-	Vector3DF q,r,s;
-	q = Vector3DF(5, 0, 0); q *= x; q += p;
-	r = Vector3DF(0, 5, 0); r *= x; r += p;
-	s = Vector3DF(0, 0, 5); s *= x; s += p;
-	drawLine3D(p.x, p.y, p.z, q.x, q.y, q.z, 1, 0, 0, 1);
-	drawLine3D(p.x, p.y, p.z, r.x, r.y, r.z, 0, 1, 0, 1);
-	drawLine3D(p.x, p.y, p.z, s.x, s.y, s.z, 0, 0, 1, 1);
-	drawCircle3D(p, r, 4.0, Vector4DF(1, 1, 0, 1));
+	Vec3F q,r,s;
+	q = Vec3F(5, 0, 0); q *= x; q += p;
+	r = Vec3F(0, 5, 0); r *= x; r += p;
+	s = Vec3F(0, 0, 5); s *= x; s += p;
+	drawLine3D( p, q, Vec4F(1,0,0,1) );
+	drawLine3D( p, r, Vec4F(0,1,0,1) );
+	drawLine3D( p, s, Vec4F(0,0,1,1) );
+	drawCircle3D(p, r, 4.0, Vec4F(1, 1, 0, 1));
 
 	Matrix4F xform;
 	xform.Translate( p.x, p.y, p.z);
 	xform *= x.getMatrix();
-	drawBox3DXform(Vector3DF(-1, -1, -1), Vector3DF(1, 1, 1), Vector4DF(1, 1, 1, 1), xform);
+	drawBox3D ( Vec3F(-1, -1, -1), Vec3F(1, 1, 1), Vec4F(1, 1, 1, 1), xform);
 }
 
 void Sample::drawSlerp( float t)
 {
 	Quaternion a, b, q, ql;
-	Vector3DF p, r, g, h;
+	Vec3F p, r, g, h;
 	int n;
 	float m;
 
 	// draw the current slerp orientation
 	n = int(t); m = t - n;
 	q = q.slerp( mKeyRot[n], mKeyRot[n+1], m);			// slerp at t	
-	drawOrientedBox ( q, Vector3DF(0,15,0) );
+	drawOrientedBox ( q, Vec3F(0,15,0) );
 
 	h = q.getAxis();  h.Normalize();  h *= 5.0;
-	drawCircle3D( h, h+Vector3DF(0,1,0), 0.2, Vector4DF(1,1,1,1));
+	drawCircle3D( h, h+Vec3F(0,1,0), 0.2, Vec4F(1,1,1,1));
 
 	// visualize slerp on the unit sphere
 	for (float u=0; u < mNumKeys-1; u += 0.05 ) {
@@ -208,27 +210,27 @@ void Sample::drawSlerp( float t)
 		if (u == 0) ql = q;
 		g = ql.getAxis(); g.Normalize();  g *= 5.0;	
 		h = q.getAxis();  h.Normalize();  h *= 5.0;	
-		drawLine3D(g.x, g.y, g.z, h.x, h.y, h.z, 1, 1, 0, 1);
+		drawLine3D( g, h, Vec4F(1, 1, 0, 1) );
 
 		ql = q;
 	}
 	// draw sphere itself
-	drawSphere3D( Vector3DF(0,0,0), 4.8, Vector4DF(0.5,0.5,0.5,1));
+	drawSphere3D( Vec3F(0,0,0), 4.8, Vec4F(0.5,0.5,0.5,1));
 }
 
 void Sample::drawSquad (float t)
 {	
 	Quaternion q, ql;
-	Vector3DF p, r, g, h;
+	Vec3F p, r, g, h;
 	int n;
 	float m, u;
 		
 	// draw the current squad orientation
 	q = Squad(t, mKeyRot, mNumKeys);
-	drawOrientedBox(q, Vector3DF(20, 15, 0));
+	drawOrientedBox(q, Vec3F(20, 15, 0));
 		
-	h = q.getAxis();  h.Normalize();  h *= 5.0;	h += Vector3DF(20, 0, 0);
-	drawCircle3D(h, h + Vector3DF(0, 1, 0), 0.2, Vector4DF(1, 1, 1, 1));
+	h = q.getAxis();  h.Normalize();  h *= 5.0;	h += Vec3F(20, 0, 0);
+	drawCircle3D(h, h + Vec3F(0, 1, 0), 0.2, Vec4F(1, 1, 1, 1));
 	
 	// visualize squad on the unit sphere
 	for (float u = 0; u < mNumKeys - 1; u += 0.05) {
@@ -238,14 +240,14 @@ void Sample::drawSquad (float t)
 		
 		// draw on unit sphere
 		if ( t==0 ) ql = q;
-		g = ql.getAxis(); g.Normalize();	g *= 5.0;	g += Vector3DF(20,0,0);
-		h = q.getAxis();  h.Normalize();  h *= 5.0;	h += Vector3DF(20, 0, 0);
-		drawLine3D( g.x, g.y, g.z, h.x, h.y, h.z, 1,1,0,1 );
+		g = ql.getAxis(); g.Normalize();	g *= 5.0;	g += Vec3F(20,0,0);
+		h = q.getAxis();  h.Normalize();  h *= 5.0;	h += Vec3F(20, 0, 0);
+		drawLine3D( g, h, Vec4F(1,1,0,1) );
 
 		ql = q;
 	}
 	// draw sphere itself
-	drawSphere3D(Vector3DF(20, 0, 0), 4.8, Vector4DF(0.5, 0.5, 0.5, 1));
+	drawSphere3D(Vec3F(20, 0, 0), 4.8, Vec4F(0.5, 0.5, 0.5, 1));
 }
 
 
@@ -304,7 +306,7 @@ void Sample::display ()
 		if ( mTime >= mNumKeys-1 ) mTime = 0;
 	}
 	
-	setLight(S3D, 100, 100, 100);
+	setLight3D ( Vec3F(100, 100, 100), Vec4F(1,1,1,1) );
 
 	clearGL();
 
@@ -320,11 +322,10 @@ void Sample::display ()
 
 	end3D();
 
-	draw3D ();
-	draw2D (); 	
+	drawAll ();
+	
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
-
 
 
 void Sample::mouse(AppEnum button, AppEnum state, int mods, int x, int y)
@@ -342,9 +343,8 @@ void Sample::mousewheel(int delta)
 	float zoom = (dist - dolly) * 0.001f;
 	dist -= delta * zoom * zoomamt;
 
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);
 }
-
 
 
 void Sample::motion(AppEnum button, int x, int y, int dx, int dy)
@@ -365,10 +365,10 @@ void Sample::motion(AppEnum button, int x, int y, int dx, int dy)
 	} break;
 	case AppEnum::BUTTON_RIGHT: {
 		// Adjust orbit angles
-		Vector3DF angs = m_cam->getAng();
+		Vec3F angs = m_cam->getAng();
 		angs.x += dx * 0.2f * fine;
 		angs.y -= dy * 0.2f * fine;
-		m_cam->setOrbit(angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
+		m_cam->SetOrbit(angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
 	} break;
 
 	}

@@ -48,9 +48,9 @@
 
 #include <time.h>
 #include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
-#include "vec.h"
-#include "quaternion.h"
+#include "gxlib.h"			// gui system
+using namespace glib;
+
 #include "mersenne.h"
 
 class Sample : public Application {
@@ -71,7 +71,7 @@ public:
 	int			FindKey( float t, float& u);
 
 	void		drawGrid();
-	void		drawOrientedCircle(Quaternion& x, Vector3DF p, float r, float m);
+	void		drawOrientedCircle(Quaternion& x, Vec3F p, float r, float m);
 
 	void		drawKeys();
 	void		drawLinearSlerp(float dt);
@@ -79,21 +79,21 @@ public:
 	void		drawCatmullRomSlerp(float dt);
 	void		drawBezierSlerp(float dt);
 
-	void		BSpline_prepare(Vector3DF* keys, int num_keys, int*& knots, Vector3DF*& d, int degree);
-	Vector3DF	BSpline (int k, float u, Vector3DF* keys, int num_keys, int* knots, Vector3DF* d, int degree);
+	void		BSpline_prepare(Vec3F* keys, int num_keys, int*& knots, Vec3F*& d, int degree);
+	Vec3F	BSpline (int k, float u, Vec3F* keys, int num_keys, int* knots, Vec3F* d, int degree);
 	
-	void		CatmullRom_prepare(Vector3DF* keys, int num_keys, Vector3DF*& mids, float tension);
-	Vector3DF	CatmullRom (int k, float u, Vector3DF* keys, int num_keys, Vector3DF* mids );
+	void		CatmullRom_prepare(Vec3F* keys, int num_keys, Vec3F*& mids, float tension);
+	Vec3F	CatmullRom (int k, float u, Vec3F* keys, int num_keys, Vec3F* mids );
 	
-	void		Bezier_prepare (Vector3DF* keys, int num_keys, Vector3DF*& tans);
-	Vector3DF	Bezier(int k, float u, Vector3DF* keys, int num_keys, Vector3DF* tans );
+	void		Bezier_prepare (Vec3F* keys, int num_keys, Vec3F*& tans);
+	Vec3F	Bezier(int k, float u, Vec3F* keys, int num_keys, Vec3F* tans );
 
 	Quaternion	Squad (int k, float u, Quaternion* keys, int num_keys, int stride=0);
 
 	int			mNumKeys;
 	float		mKeyTime[100];		// input keys
 	Quaternion	mKeyRot[100];			
-	Vector3DF	mKeyPnt[100];
+	Vec3F	mKeyPnt[100];
 	Mersenne	mt;
 
 	bool		m_taper;
@@ -103,9 +103,9 @@ public:
 	bool		m_squad;
 	
 	int*		m_knots;
-	Vector3DF*	m_ktmp;
-	Vector3DF*	m_mids;
-	Vector3DF*  m_tans;
+	Vec3F*	m_ktmp;
+	Vec3F*	m_mids;
+	Vec3F*  m_tans;
 
 	Camera3D*	m_cam;
 	bool		m_run;
@@ -122,11 +122,11 @@ bool Sample::init ()
 	addSearchPath ( ASSET_PATH );
 	init2D ( "arial" );
 	setview2D ( w, h );	
-	setText ( 16, 1 );			
+	setTextSz ( 16, 1 );			
 
 	m_cam = new Camera3D;
 	m_cam->setFov ( 70 );
-	m_cam->setOrbit ( Vector3DF(20,30,0), Vector3DF(0,20,0), 150, 1 );
+	m_cam->SetOrbit ( Vec3F(20,30,0), Vec3F(0,20,0), 150, 1 );
 
 	mt.seed(124);
 
@@ -164,7 +164,7 @@ void Sample::Regenerate(bool bNewKeys)
 void Sample::AlignKeys ()
 {
 	Quaternion q;
-	Vector3DF tan, dir, a, b;
+	Vec3F tan, dir, a, b;
 	float dot;
 	for (int n = 0; n < mNumKeys-1; n++) {
 			
@@ -178,7 +178,7 @@ void Sample::AlignKeys ()
 		// simplest method. aim at next key
 		dir = mKeyPnt[n+1] - mKeyPnt[n]; dir.Normalize();			
 
-		q.rotationFromTo ( Vector3DF(0,1,0), dir ); q.normalize();
+		q.fromRotationFromTo ( Vec3F(0,1,0), dir ); q.normalize();
 
 		mKeyRot[n] = q;
 	}
@@ -189,7 +189,7 @@ void Sample::AlignKeys ()
 
 void Sample::GenerateKeys (int k)
 {
-	Vector3DF p;
+	Vec3F p;
 	Quaternion q;
 	float a;
 
@@ -232,14 +232,14 @@ void Sample::GenerateKeys (int k)
 // p(t) = <Pj, Pj+1, Pj+2, Pj+3> Bmtx T u     where u = t - int(t),  P = input points, Bmtx = B-Spline Basis Mtx, T = powers of t
 //
 
-void Sample::BSpline_prepare(Vector3DF* keys, int num_keys, int*& knots, Vector3DF*& d, int degree)
+void Sample::BSpline_prepare(Vec3F* keys, int num_keys, int*& knots, Vec3F*& d, int degree)
 {
 	int p = degree;
 
 	if ( knots != 0x0) free (knots);
 	if ( d != 0x0) free (d);
 	knots = (int*) malloc( (num_keys + p*2) * sizeof(int));
-	d = (Vector3DF*) malloc( (p + 1) * sizeof(Vector3DF));
+	d = (Vec3F*) malloc( (p + 1) * sizeof(Vec3F));
 
 	// knot vector
 	for (int n = 0; n < num_keys; n++) {
@@ -251,7 +251,7 @@ void Sample::BSpline_prepare(Vector3DF* keys, int num_keys, int*& knots, Vector3
 	}
 }
 
-Vector3DF Sample::BSpline(int k, float u, Vector3DF* keys, int num_keys, int* knots, Vector3DF* d, int degree)
+Vec3F Sample::BSpline(int k, float u, Vec3F* keys, int num_keys, int* knots, Vec3F* d, int degree)
 {
 	float a;
 	int p = degree;
@@ -284,10 +284,10 @@ Vector3DF Sample::BSpline(int k, float u, Vector3DF* keys, int num_keys, int* kn
 //
 // p(t) = <Pj, Pj+1, Pj+2, Pj+3> Bmtx T u     where u = t - int(t),  P = input points, Bmtx = Basis Mtx, T = powers of t
 //
-void Sample::CatmullRom_prepare (Vector3DF* keys, int num_keys, Vector3DF*& mids, float tension )
+void Sample::CatmullRom_prepare (Vec3F* keys, int num_keys, Vec3F*& mids, float tension )
 {
 	if (mids != 0x0) free(mids);
-	mids = (Vector3DF*) malloc ( num_keys * sizeof(Vector3DF) );
+	mids = (Vec3F*) malloc ( num_keys * sizeof(Vec3F) );
 
 	// construct tangents
 	mids[0] = (keys[2] - keys[0]) * tension;
@@ -297,7 +297,7 @@ void Sample::CatmullRom_prepare (Vector3DF* keys, int num_keys, Vector3DF*& mids
 	mids[num_keys-1] = (keys[num_keys-1] - keys[num_keys-3]) * tension;
 }
 
-Vector3DF Sample::CatmullRom (int k, float u, Vector3DF* keys, int num_keys, Vector3DF* mids)
+Vec3F Sample::CatmullRom (int k, float u, Vec3F* keys, int num_keys, Vec3F* mids)
 {
 	float u2 = u*u; float u3 = u2*u;
 	
@@ -305,9 +305,9 @@ Vector3DF Sample::CatmullRom (int k, float u, Vector3DF* keys, int num_keys, Vec
 	float h10 = u3 - 2*u2 + u;
 	float h01 = -2*u3 + 3*u2;
 	float h11 = u3 - u2;
-	Vector3DF kn1 = (k+1 >= num_keys) ? keys[ num_keys-1 ] : keys[k+1];
+	Vec3F kn1 = (k+1 >= num_keys) ? keys[ num_keys-1 ] : keys[k+1];
 
-	Vector3DF p;
+	Vec3F p;
 	p = keys[k]*h00 + mids[k]*h10 + kn1*h01 + mids[k+1]*h11;
 
 	return p;
@@ -323,10 +323,10 @@ Vector3DF Sample::CatmullRom (int k, float u, Vector3DF* keys, int num_keys, Vec
 //
 // p(t) = <Pj, Pj+1, Pj+2, Pj+3> Bmtx T u     where u = t - int(t),  P = input points, Bmtx = Basis Mtx, T = powers of t
 //
-void Sample::Bezier_prepare(Vector3DF* keys, int num_keys, Vector3DF*& tans )
+void Sample::Bezier_prepare(Vec3F* keys, int num_keys, Vec3F*& tans )
 {
 	if (tans != 0x0) free(tans);
-	tans = (Vector3DF*) malloc(num_keys * sizeof(Vector3DF));
+	tans = (Vec3F*) malloc(num_keys * sizeof(Vec3F));
 
 	// Construct tangents	
 	// There are many ways to construct Bezier tangents.
@@ -337,7 +337,7 @@ void Sample::Bezier_prepare(Vector3DF* keys, int num_keys, Vector3DF*& tans )
 	float normal_amt = 0.4f;
 	float control_amt = 0.2f;
 
-	Vector3DF v(0, 1.0, 0);  // normal axis of keys
+	Vec3F v(0, 1.0, 0);  // normal axis of keys
 	
 	tans[0] = (keys[2] - keys[0]) * control_amt;
 	for (int n = 1; n < num_keys - 1; n++) {
@@ -347,16 +347,16 @@ void Sample::Bezier_prepare(Vector3DF* keys, int num_keys, Vector3DF*& tans )
 	tans[num_keys - 1] = (keys[num_keys - 1] - keys[num_keys - 3]) * control_amt;
 }
 
-Vector3DF Sample::Bezier(int k, float u, Vector3DF* keys, int num_keys, Vector3DF* tans)
+Vec3F Sample::Bezier(int k, float u, Vec3F* keys, int num_keys, Vec3F* tans)
 {
 	float um = 1 - u;
 
 	float b0 = um*um*um;
 	float b1 = 3*u*um*um;
 	float b2 = 3*u*u*um;
-	Vector3DF kn1 = (k + 1 >= num_keys) ? keys[num_keys - 1] : keys[k + 1];
+	Vec3F kn1 = (k + 1 >= num_keys) ? keys[num_keys - 1] : keys[k + 1];
 
-	Vector3DF p;
+	Vec3F p;
 	p = keys[k] * b0 + (keys[k]+tans[k])* b1 + (kn1-tans[k])* b2 + kn1 * u*u*u;
 
 	return p;
@@ -368,39 +368,39 @@ void Sample::drawGrid()
 {
 	int w = getWidth(), h = getHeight();
 	for (int n = -50; n <= 50; n += 10 ) {
-		drawLine3D ( n, 0, -50, n, 0, 50, 1, 1, 1, .7);
-		drawLine3D( -50, 0, n, 50, 0, n, 1, 1, 1, .7);
+		drawLine3D ( Vec3F(n, 0, -50), Vec3F(n, 0, 50), Vec4F(1, 1, 1, .7));
+		drawLine3D( Vec3F(-50, 0, n), Vec3F(50, 0, n), Vec4F(1, 1, 1, .7));
 	}
 }
 
 void Sample::drawKeys()
 {
-	Vector3DF p,q,r,s,v;
-	Vector3DF drawoffs (-40,0,0);
+	Vec3F p,q,r,s,v;
+	Vec3F drawoffs (-40,0,0);
 
 	for (int n=0; n < mNumKeys;n++) {
 		p = mKeyPnt[n] + drawoffs;
-		q = Vector3DF(1,0,0); q *= mKeyRot[n]; q += p;
-		r = Vector3DF(0,1, 0); r *= mKeyRot[n]; r += p;
-		s = Vector3DF(0, 0,1); s *= mKeyRot[n]; s += p;
-		drawLine3D ( p.x,p.y,p.z, q.x,q.y,q.z, 1,0,0,1);
-		drawLine3D ( p.x, p.y, p.z, r.x, r.y, r.z, 0, 1, 0, 1);
-		drawLine3D ( p.x, p.y, p.z, s.x, s.y, s.z, 0, 0, 1, 1);
-		drawCircle3D ( p, r, 1.0, Vector4DF(1,1,0,1));
+		q = Vec3F(1,0,0); q *= mKeyRot[n]; q += p;
+		r = Vec3F(0,1, 0); r *= mKeyRot[n]; r += p;
+		s = Vec3F(0, 0,1); s *= mKeyRot[n]; s += p;
+		drawLine3D ( p, q, Vec4F(1,0,0,1));
+		drawLine3D ( p, r, Vec4F(0,1,0,1));
+		drawLine3D ( p, s, Vec4F(0,0,1,1));		
+		drawCircle3D ( p, r, 1.0, Vec4F(1,1,0,1));
 		if (n != mNumKeys-1) {
 			v = mKeyPnt[n + 1] + drawoffs;
-			drawLine3D (p.x,p.y,p.z, v.x, v.y, v.z, 1,1,0, 0.5);
+			drawLine3D ( p, v, Vec4F(1,1,0,0.5));
 		}
 	}
-	drawText3D(m_cam, drawoffs.x, drawoffs.y, drawoffs.z + 5, "Keys", 1, 1, 1, 1);
+	drawText3D( drawoffs, 1.0, "Keys", Vec4F(1, 1, 1, 1) );
 }
 
-void Sample::drawOrientedCircle ( Quaternion& x, Vector3DF p, float radius, float m )
+void Sample::drawOrientedCircle ( Quaternion& x, Vec3F p, float radius, float m )
 {
-	Vector3DF q,r,s;
+	Vec3F q,r,s;
 	x.normalize();
-	r = Vector3DF(0, 1, 0); r *= x; r += p;
-	Vector4DF clr = (m == -1) ? Vector4DF(1, 1, 1, 1) : ((m > 0.999 || m < 0.001) ? Vector4DF(1, 1, 0, 1) : Vector4DF(1, .5, 0, 1));
+	r = Vec3F(0, 1, 0); r *= x; r += p;
+	Vec4F clr = (m == -1) ? Vec4F(1, 1, 1, 1) : ((m > 0.999 || m < 0.001) ? Vec4F(1, 1, 0, 1) : Vec4F(1, .5, 0, 1));
 	drawCircle3D(p, r, radius, clr );
 }
 
@@ -435,10 +435,10 @@ int Sample::FindKey( float t, float& u)
 void Sample::drawLinearSlerp (float dt)
 {
 	Quaternion q;
-	Vector3DF p;
+	Vec3F p;
 	int k;
 	float m, r, u;
-	Vector3DF drawoffs (-20,0,0);
+	Vec3F drawoffs (-20,0,0);
 
 	float tend = mKeyTime[ mNumKeys-1 ];
 
@@ -459,16 +459,16 @@ void Sample::drawLinearSlerp (float dt)
 		r = (m_taper) ? 1.0 - t / tend : 1.0;		// taper [optional]
 		drawOrientedCircle( q, p, r, u );					// draw
 	}
-	drawText3D(m_cam, drawoffs.x, drawoffs.y, drawoffs.z+5, "LinearSlerp", 1, 1, 1, 1);
+	drawText3D( Vec3F(drawoffs.x,0,5), 2.0, "LinearSlerp", Vec4F(1, 1, 1, 1) );
 }
 
 void Sample::drawBSplineSlerp (float dt)
 {	
 	Quaternion q;
-	Vector3DF p;
+	Vec3F p;
 	int n, k;
 	float m, u, r;
-	Vector3DF drawoffs (0,0,0);
+	Vec3F drawoffs (0,0,0);
 
 	float tend = mKeyTime[ mNumKeys-1 ];
 
@@ -494,17 +494,17 @@ void Sample::drawBSplineSlerp (float dt)
 	}
 	char msg[256];
 	sprintf ( msg, "SplineSlerp (deg %d)", m_degree );
-	drawText3D ( m_cam, drawoffs.x, 0, 5, msg, 1,1,1,1);
+	drawText3D ( Vec3F(drawoffs.x,0,5), 2, msg, Vec4F(1,1,1,1) );
 }
 
 
 void Sample::drawCatmullRomSlerp(float dt)
 {
 	Quaternion q;
-	Vector3DF p;
+	Vec3F p;
 	int n, k;
 	float m, u, r;
-	Vector3DF drawoffs(20, 0, 0);
+	Vec3F drawoffs(20, 0, 0);
 
 	float tend = mKeyTime[ mNumKeys-1 ];
 
@@ -526,16 +526,16 @@ void Sample::drawCatmullRomSlerp(float dt)
 	}
 	char msg[256];
 	sprintf(msg, "CatmullRomSlerp");
-	drawText3D(m_cam, drawoffs.x, 0, 5, msg, 1, 1, 1, 1);
+	drawText3D( Vec3F(drawoffs.x,0,5), 2, msg, Vec4F(1,1,1,1) );
 }
 
 void Sample::drawBezierSlerp (float dt)
 {
 	Quaternion q;
-	Vector3DF p;
+	Vec3F p;
 	int k;
 	float m, u, r;
-	Vector3DF drawoffs(40, 0, 0);
+	Vec3F drawoffs(40, 0, 0);
 
 	float tend = mKeyTime[ mNumKeys-1 ];
 
@@ -557,12 +557,12 @@ void Sample::drawBezierSlerp (float dt)
 	}
 	// draw tangents
 	for (k = 0; k < mNumKeys; k++) {
-		drawLine3D ( mKeyPnt[k]-m_tans[k] + drawoffs, mKeyPnt[k]+m_tans[k] + drawoffs, Vector4DF(1,1,1,1) );
+		drawLine3D ( mKeyPnt[k]-m_tans[k] + drawoffs, mKeyPnt[k]+m_tans[k] + drawoffs, Vec4F(1,1,1,1) );
 	}
 
 	char msg[256];
 	sprintf(msg, "BezierSlerp");
-	drawText3D(m_cam, drawoffs.x, 0, 5, msg, 1, 1, 1, 1);
+	drawText3D( Vec3F(drawoffs.x,0,5), 2, msg, Vec4F(1,1,1,1) );
 }
 
 
@@ -613,12 +613,11 @@ void Sample::display ()
 {	
 	int w = getWidth(); int h = getHeight();
 
-	setLight(S3D, 100, 100, 100);
+	setLight3D ( Vec3F(100, 100, 100), Vec4F(1,1,1,1) );
 
 	clearGL();
 
-	start3D(m_cam);
-		setText(2, 1);
+	start3D(m_cam);		
 
 		drawGrid();
 
@@ -636,19 +635,19 @@ void Sample::display ()
 
 	end3D();
 
-	start2D();			// help
-		setText ( 20, 1);
-		drawText(10,10, "Press 'g' to regenerate.", 1, 1, 1, 1);
-		drawText(10,30, "Press 'r' to regenerate (very random).", 1, 1, 1, 1);
-		drawText(10,50, "Press 'a' to align keys.", 1, 1, 1, 1);
-		drawText(10,70, "Press 's' to switch SLERP or SQUAD interp for orientation", 1, 1, 1, 1);
-		drawText(10,90, "Press 't' for optional tapering.", 1, 1, 1, 1);
-		drawText(10,110, "Press < > to change number of keys.", 1, 1, 1, 1);
-		drawText(10,130, "Press 1,2,3,4,5,6 to change B-Spline degree.", 1, 1, 1, 1);
-		drawText(10,150, "Press - + to adjust Catmull-Rom tension.", 1, 1, 1, 1);
+	start2D( w, h );			// help
+		drawText( Vec2F(10,10), "Press 'g' to regenerate.", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10,30), "Press 'r' to regenerate (very random).",Vec4F(1,1,1,1) );
+		drawText( Vec2F(10,50), "Press 'a' to align keys.", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10,70), "Press 's' to switch SLERP or SQUAD interp for orientation", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10,90), "Press 't' for optional tapering.", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10,110), "Press < > to change number of keys.", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10,130), "Press 1,2,3,4,5,6 to change B-Spline degree.", Vec4F(1,1,1,1) );
+		drawText( Vec2F(10,150), "Press - + to adjust Catmull-Rom tension.", Vec4F(1,1,1,1) );
+	end2D();
 
-	draw3D ();
-	draw2D (); 	
+	drawAll();
+
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
 
@@ -669,7 +668,7 @@ void Sample::mousewheel(int delta)
 	float zoom = (dist - dolly) * 0.001f;
 	dist -= delta * zoom * zoomamt;
 
-	m_cam->setOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);
+	m_cam->SetOrbit(m_cam->getAng(), m_cam->getToPos(), dist, dolly);
 }
 
 
@@ -692,10 +691,10 @@ void Sample::motion(AppEnum button, int x, int y, int dx, int dy)
 	} break;
 	case AppEnum::BUTTON_RIGHT: {
 		// Adjust orbit angles
-		Vector3DF angs = m_cam->getAng();
+		Vec3F angs = m_cam->getAng();
 		angs.x += dx * 0.2f * fine;
 		angs.y -= dy * 0.2f * fine;
-		m_cam->setOrbit(angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
+		m_cam->SetOrbit(angs, m_cam->getToPos(), m_cam->getOrbitDist(), m_cam->getDolly());
 	} break;
 
 	}

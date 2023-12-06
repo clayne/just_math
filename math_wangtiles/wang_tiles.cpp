@@ -3,7 +3,7 @@
 #include "common_defs.h"
 
 #include "wang_tiles.h"
-#include "image.h"
+#include "imagex.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,7 +77,7 @@ bool WangTiles::LoadTileSet(const char * fileName)
 		}
 
 		mTiles[i].numPoints = freadi(fin);		
-		mTiles[i].points = new Vector2DF [mTiles[i].numPoints];
+		mTiles[i].points = new Vec2F [mTiles[i].numPoints];
 		for (int j = 0; j < mTiles[i].numPoints; j++)
 		{
 			mTiles[i].points[j].x = freadf(fin);
@@ -86,7 +86,7 @@ bool WangTiles::LoadTileSet(const char * fileName)
 		}
 
 		mTiles[i].numSubPoints = freadi(fin);
-		mTiles[i].subPoints = new Vector2DF[mTiles[i].numSubPoints];
+		mTiles[i].subPoints = new Vec2F[mTiles[i].numSubPoints];
 		for (int j = 0; j < mTiles[i].numSubPoints; j++)
 		{
 			mTiles[i].subPoints[j].x = freadf(fin);
@@ -104,7 +104,7 @@ void WangTiles::SetMaxPoints ( int p )
 {
 	mMaxPnts = p;
 	if (mPoints != 0) delete mPoints;
-	mPoints = new Vector3DF[mMaxPnts];
+	mPoints = new Vec3F[mMaxPnts];
 }
 
 void WangTiles::SetDensityFunc(float* density, int xres, int yres)
@@ -114,7 +114,7 @@ void WangTiles::SetDensityFunc(float* density, int xres, int yres)
 	mYRes = yres;
 }
 
-int WangTiles::RecurseTileImage ( Vector2DF cmin, Vector2DF cmax, float zm, float ts )
+int WangTiles::RecurseTileImage ( Vec2F cmin, Vec2F cmax, float zm, float ts )
 {
 	if (mDensity==0x0) dbgprintf ( "ERROR: Wang tiles has no density image.\n" );
 	if (mMaxPnts== 0) dbgprintf ("ERROR: Wang tiles has no max points.\n");	
@@ -147,7 +147,7 @@ void WangTiles::RecurseTileImage (Tile & t, float x, float y, int level )
 
 	// generate points
 	float px, py, v;
-	Vector3DF* basepnt = mCurrPnt;
+	Vec3F* basepnt = mCurrPnt;
 
 	for (int i = 0; i < tilePnts; i++)
 	{

@@ -39,9 +39,10 @@
 
 #include <time.h>
 #include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
-#include "image.h"
+#include "gxlib.h"			// gui system
+using namespace glib;
 
+#include "imagex.h"
 #include "wang_tiles.h"
 
 class Sample : public Application {
@@ -60,12 +61,12 @@ public:
 
 	WangTiles	wt;
 
-	Image		img;
+	ImageX		img;
 	float*		m_density;
 	float		m_toneScalar;
 
-	Vector3DF	m_view;
-	Vector4DF	m_pal[16];
+	Vec3F	m_view;
+	Vec4F	m_pal[16];
 	
 	Camera3D*	m_cam;
 
@@ -82,12 +83,12 @@ bool Sample::init ()
 
 	m_toneScalar = 1200.0;		// gain factor for density
 
-	m_showmap = false;
+	m_showmap = true;
 
 	addSearchPath ( ASSET_PATH );
 	init2D ( "arial" );
 	setview2D ( w, h );	
-	setText ( 16, 1 );			
+	setTextSz ( 16, 1 );			
 
 	//-- 16-color palette
 	for (int n = 0; n < 16; n++) {
@@ -109,7 +110,7 @@ bool Sample::init ()
 	}
 	
 	//-- Construct density function
-	Vector3DF pix;
+	Vec3F pix;
 	float v;
 	int xres = img.GetWidth();
 	int yres = img.GetHeight();
@@ -118,7 +119,8 @@ bool Sample::init ()
 	for (int y = 0; y < yres; y++)
 		for (int x = 0; x < xres; x++) {
 			pix = img.GetPixelUV( float(x)/xres, float(y)/yres );		// UV = using range [0,1]  (does not mean a different channel)
-			m_density[y*xres+x] = pix.LengthFast() - 0.3;					// Adjust gamma and offset here.. LengthFast = grayscale from RGB vector
+			v = pix.LengthFast() / 256.0;														// convert color to grayscale [0,1]
+			m_density[y*xres+x] = v - 0.3;													// adjust gamma and offset here
 		}
 
 	wt.SetDensityFunc ( m_density, img.GetWidth(), img.GetHeight() );		// assign density function to Wang Tile sampler
@@ -128,10 +130,9 @@ bool Sample::init ()
 	//--- Set camera
 	m_cam = new Camera3D;
 	m_cam->setFov ( 90 );
-	m_cam->setOrbit ( Vector3DF(0,5,0), Vector3DF(388,2,480), 50, 1 );
+	m_cam->setNearFar ( 1, 5000 );
+	m_cam->SetOrbit ( Vec3F(0,0,0), Vec3F(388,5,480), 50, 1 );
 
-	//--- Set light
-	setLight (0, 500, 500, 500);
 	
 	return true;
 }
@@ -141,26 +142,26 @@ void Sample::drawGrid()
 {
 	int w = getWidth(), h = getHeight();
 	for (int n = 0; n <= 1000; n+=20 ) {
-		drawLine3D ( n, 0, 0, n, 0, 1000, 1, 1, 1, .1);
-		drawLine3D ( 0, 0, n, 1000, 0, n, 1, 1, 1, .1);
+		drawLine3D ( Vec3F(n, 0, 0), Vec3F(n, 0, 1000), Vec4F(1, 1, 1, .5) );
+		drawLine3D ( Vec3F(0, 0, n), Vec3F(1000, 0, n), Vec4F(1, 1, 1, .5) );
 	}
 }
 
 
 void Sample::display ()
 {	
-	Vector3DF pnt;
-	Vector4DF clr;
-	Vector3DF cmin, cmax;
+	Vec3F pnt;
+	Vec4F clr;
+	Vec3F cmin, cmax;
 	float zoom;
 
 	int w = getWidth(); 
 	int h = getHeight();
-	Vector3DF imgres ( img.GetWidth(), img.GetHeight(), 0 );
+	Vec3F imgres ( img.GetWidth(), img.GetHeight(), 0 );
 	
-	Vector3DF a, b, c;
-	Vector3DF pt, pos;
-	Vector4DF pix(1, 1, 1, 1);
+	Vec3F a, b, c;
+	Vec3F pt, pos;
+	Vec4F pix(1, 1, 1, 1);
 	int cl;
 	int o;
 	float d;
@@ -175,36 +176,37 @@ void Sample::display ()
 	int pnts = wt.Recurse3D (m_cam, zm, m_toneScalar, dst);
 
 	// Draw 3D
-	start3D(m_cam);
+	start3D(m_cam);	
+		setLight3D ( Vec3F(400, 100, 400), Vec4F(2,2,2,1) );
+		setMaterial (  Vec3F(.1,.1,.1), Vec3F(1,1,1), Vec3F(1,1,1), 5, 1 );
 		
 		drawGrid();
 
 		for (int n = 0; n < pnts; n++) {
 			
-			pt = wt.getPnt(n);											// get generated point			
+			pt = wt.getPnt(n);															// get generated point			
 			
-			a = Vector3DF(pt.x, 0, pt.y);								// get 3D position
+			a = Vec3F(pt.x, 0, pt.y);												// get 3D position
 			o = int(pt.y * imgres.x) + int(pt.x);						// offset into density func
-			b = a + Vector3DF(.1, m_density[o] * 5.0, .1);				// get 3D box dimensions. height = density
+			b = a + Vec3F(.1, m_density[o] * 5.0, .1);			// get 3D box dimensions. height = density
 			
-			if (m_cam->boxInFrustum(a, b))	{							// cull box if outside camera frustum
-				d = 5000.0 / (m_cam->getPos() - a).LengthFast();				// use distance as alpha falloff
-				pix = img.GetPixelUV(pt.x / imgres.x, pt.y / imgres.y);		// get point color (sample original image)			
-				drawCube3D ( a, b, pix.x*5, pix.y*5, pix.z*5, 1 );		// draw box
+			if (m_cam->boxInFrustum(a, b))	{														// cull box if outside camera frustum
+				d = 5000.0 / (m_cam->getPos() - a).LengthFast();					// use distance as alpha falloff
+				pix = img.GetPixelUV(pt.x / imgres.x, pt.y / imgres.y) * (1.f/256);		// get point color (sample original image)			
+				drawCube3D ( a, b, pix );											// draw box
 			}
 		}
 
 	end3D();
 
 	// Draw 2D view
-	start2D();
+	start2D( w, h );
 
-		setview2D(getWidth(), getHeight());
-		drawText(1200, 20, "Wang Tiles", 1,1,1,1);
-		drawText(1200, 35, "  Right mouse  Change direction", 1,1,1,1);
-		drawText(1200, 50, "  W,S,A,D      Fly through map", 1,1,1,1);			
-		drawText(1200, 65, "  Z,X          Adjust density", 1,1,1,1);			
-		drawText(1200, 80, "  Spacebar     Show/hide 2D map", 1,1,1,1);			
+		drawText( Vec2F(1200, 20), "Wang Tiles", Vec4F(1,1,1,1) );
+		drawText( Vec2F(1200, 35), "  Right mouse  Change direction", Vec4F(1,1,1,1) );
+		drawText( Vec2F(1200, 50), "  W,S,A,D      Fly through map", Vec4F(1,1,1,1) );			
+		drawText( Vec2F(1200, 65), "  Z,X          Adjust density", Vec4F(1,1,1,1) );			
+		drawText( Vec2F(1200, 80), "  Spacebar     Show/hide 2D map", Vec4F(1,1,1,1) );			
 		
 		if ( m_showmap ) {
 			
@@ -213,28 +215,26 @@ void Sample::display ()
 			a = m_cam->getPos();  
 			b = a + m_cam->inverseRay(0, 0, w, h) * dst;
 			c = a + m_cam->inverseRay(w, h, w, h) * dst;
-			drawLine ( a.x/sc, a.z/sc, b.x/sc, b.z / sc, 1, 1, 0, 1);
-			drawLine ( a.x/sc, a.z/sc, c.x/sc, c.z / sc, 1, 1, 0, 1);
+			drawLine ( Vec2F(a.x/sc, a.z/sc), Vec2F(b.x/sc, b.z/sc), Vec4F(1, 1, 0, 1));
+			drawLine ( Vec2F(a.x/sc, a.z/sc), Vec2F(c.x/sc, c.z/sc), Vec4F(1, 1, 0, 1));
 		
 			// Draw points
 			for (int n=0; n < pnts; n += 2 ) {			// skip every other pnt (faster)
 				a = wt.getPnt(n);
-				pix = img.GetPixelUV( a.x / imgres.x, a.y / imgres.y );	
+				pix = img.GetPixelUV( a.x / imgres.x, a.y / imgres.y ) * (1.f/256);
 
 				if ( !m_cam->pointInFrustum( a.x, 0, a.y ) ) {pix.x = pix.y = pix.z; }		// show points outside frustum as grey
 
-				drawPnt ( a.x/sc, a.y/sc, pix );
+				drawLine ( Vec2F(a.x/sc, a.y/sc), Vec2F(a.x/sc + 0.5, a.y/sc + 0.5), pix );
 			}
-			drawRect ( 10, 10, imgres.x/sc, imgres.y/sc, 1, 1, 1, 1);
+			drawRect ( Vec2F(10, 10), Vec2F(imgres.x/sc, imgres.y/sc), Vec4F(1, 1, 1, 1) );
 		
 		} 
 
 	end2D();
 
-	//--- Actual rendering here
-	draw3D();
-
-	draw2D (); 	
+	// render with opengl
+	drawAll();
 
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
@@ -255,12 +255,12 @@ void Sample::motion (AppEnum button, int x, int y, int dx, int dy)
 	// Get camera for scene
 	bool shift = (getMods() & KMOD_SHIFT);		// Shift-key to modify light
 	float fine = 0.5f;
-	Vector3DF dang; 
+	Vec3F dang; 
 
 	switch ( mouse_down ) {	
 	case AppEnum::BUTTON_LEFT: case AppEnum::BUTTON_RIGHT: {
 
-		Vector3DF angs = m_cam->getAng();				
+		Vec3F angs = m_cam->getAng();				
 		angs.x -= dx * 0.1;
 		angs.y += dy * 0.1;
 		m_cam->setAngles ( angs.x, angs.y, 0  );		// adjust camera direction

@@ -1,101 +1,62 @@
 cmake_minimum_required(VERSION 2.8)
-set(PROJNAME math_bilinear_patch)
+set(PROJNAME math_bilinear_patch )
 Project(${PROJNAME})
 Message(STATUS "-------------------------------")
 Message(STATUS "Processing Project ${PROJNAME}:")
 
 #####################################################################################
-# Bootstrap
+# LIBMIN Installed Path
 #
-set( BASE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} )
-find_path ( CMAKE_HELPERS_PATH "HelpersBootstrap.cmake" HINTS ${BASE_DIRECTORY}/../libmin/cmake/ )
-if ( ${CMAKE_HELPERS_PATH} STREQUAL "HELPERS-NOTFOUND" )
-    message ( FATAL_ERROR "\n Please set the CMAKE_HELPERS_PATH to location of HelpersBootstrap.cmake" )
-endif()
-include( ${CMAKE_HELPERS_PATH}/HelpersBootstrap.cmake )		# Cross-Platform functions
-include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/src")
-include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/include")
-
-#####################################################################################
-# Options
-
-_REQUIRE_MAIN()
-
-#--- symbols in release mode
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi" CACHE STRING "" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF" CACHE STRING "" FORCE)
+set ( LIBMIN_PATH "d:/codes/build/libmin" CACHE STRING "Location of Libmin")
+list( APPEND CMAKE_MODULE_PATH "${LIBMIN_PATH}/cmake" )
+list( APPEND CMAKE_PREFIX_PATH "${LIBMIN_PATH}/cmake" )
 
 #####################################################################################
 # Include LIBMIN
 #
-find_package(Libmin)
+find_package(Libmin QUIET)
 
-if (LIBMIN_FOUND)
+if (NOT LIBMIN_FOUND)
+
+  Message ( FATAL_ERROR "
+  This project requires Libmin. Build Libmin first.
+  Set the LIBMIN_PATH to the installed location (not the libmin source).
+  Libmin also provides the cmakes used to build this app. 
+  " )
+
+else()
   add_definitions(-DUSE_LIBMIN)  
-  add_definitions(-DBUILD_PNG)  
   include_directories(${LIBMIN_INC_DIR})
   include_directories(${LIBRARIES_INC_DIR})  
-  LIST( APPEND LIBRARIES_OPTIMIZED "${LIBMIN_LIB_DIR}/${LIBMIN_REL}")
-  LIST( APPEND LIBRARIES_DEBUG "${LIBMIN_LIB_DIR}/${LIBMIN_DEBUG}")	
-  _EXPANDLIST( OUTPUT PACKAGE_DLLS SOURCE ${LIBMIN_LIB_DIR} FILES ${LIBMIN_DLLS} )
-  message ( STATUS "  ---> Using LIBMIN")
 
-  LIST( APPEND LIBRARIES_OPTIMIZED "shcore.lib")
-  LIST( APPEND LIBRARIES_DEBUG "shcore.lib")	
-  add_definitions(-DUSE_DPI_AWARE)  
-  message ( STATUS "--> Using DPI AWARE")
-
+  if (DEFINED ${BUILD_LIBMIN_STATIC})
+    add_definitions(-DLIBMIN_STATIC) 
+    file(GLOB LIBMIN_SRC "${LIBMIN_SRC_DIR}/*.cpp" )
+    file(GLOB LIBMIN_INC "${LIBMIN_INC_DIR}/*.h" )
+    LIST( APPEND LIBMIN_SOURCE_FILES ${LIBMIN_SRC} ${LIBMIN_INC} )
+    message ( STATUS "  ---> Using LIBMIN (static)")
+  else()    
+    LIST( APPEND LIBRARIES_OPTIMIZED "${LIBMIN_LIB_DIR}/${LIBMIN_REL}")
+    LIST( APPEND LIBRARIES_DEBUG "${LIBMIN_LIB_DIR}/${LIBMIN_DEBUG}")	    
+    _EXPANDLIST( OUTPUT PACKAGE_DLLS SOURCE ${LIBMIN_LIB_DIR} FILES ${LIBMIN_DLLS} )
+    message ( STATUS "  ---> Using LIBMIN")
+  endif() 
 endif()
 
-###################################################################################
-# Include OpenGL
-#  (must come after libmin, which provides path to glew.c)
-OPTION (BUILD_OPENGL "Build with OpenGL" ON)
-if (BUILD_OPENGL)
-	find_package(OpenGL)
-	add_definitions(-DUSE_OPENGL)  		# Use OpenGL	
-	IF (WIN32)
-	     LIST(APPEND LIBRARIES_OPTIMIZED "opengl32.lib" )
-	     LIST(APPEND LIBRARIES_DEBUG "opengl32.lib" )
-	ENDIF()
-	add_definitions(-DGLEW_STATIC)
-	message ( "USING GLEW: ${LIBMIN_GLEW_DIR}/glew.c" )
-	file(GLOB COMMON_SOURCE_FILES "${LIBMIN_GLEW_DIR}/glew.c" )   # Use GLEW (static)	
-endif()
+#####################################################################################
+# Options
 
+set( USE_NVTX true CACHE BOOL "")
 
-OPTION (BUILD_CUDA "Build with CUDA" OFF)
-if (BUILD_CUDA) 
-	#####################################################################################
-	# Find CUDA
-	if (NOT CUDA_TOOLKIT_ROOT_DIR) 
-		set ( CUDA_TOOLKIT_ROOT_DIR "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.2" CACHE PATH "CUDA Toolkit path")
-	endif()
-	find_package(CUDA)
-	if ( CUDA_FOUND )
-		message( STATUS "--> Using package CUDA (ver ${CUDA_VERSION})") 
-		add_definitions(-DUSE_CUDA)    
-		include_directories(${CUDA_TOOLKIT_INCLUDE})
-		LIST(APPEND LIBRARIES_OPTIMIZED ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} )
-		LIST(APPEND LIBRARIES_DEBUG ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} )
-		LIST(APPEND PACKAGE_SOURCE_FILES ${CUDA_TOOLKIT_INCLUDE} )
-		source_group(CUDA FILES ${CUDA_TOOLKIT_INCLUDE} ) 
-	else()
- 		message ( FATAL_ERROR "---> Unable to find package CUDA")
-	endif()
+_REQUIRE_MAIN()
 
-	#####################################################################################
-	# Custom Build for CUDA files
-	#
-	file(GLOB CUDA_FILES RELATIVE "${BASE_DIRECTORY}" kernels/*.cu kernels/*.cuh )
-	message ( STATUS "Located CUDA kernels: ${CUDA_FILES}" )
+_REQUIRE_GL()
 
-	if ( USE_DEBUG_PTX )
-		_COMPILEPTX ( SOURCES ${CUDA_FILES} TARGET_PATH ${LIB_OUTPUT_PATH} GENERATED CUDA_PTX GENPATHS CUDA_PTX_PATHS INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/kernels" OPTIONS -DSIM_CODE -arch=${CUDA_ARCH_BIN} -code=${CUDA_ARCH_PTX} --ptxas-options=-v -G -g --use_fast_math --maxrregcount=64 )
-	else()
-		_COMPILEPTX ( SOURCES ${CUDA_FILES} TARGET_PATH ${LIB_OUTPUT_PATH} GENERATED CUDA_PTX GENPATHS CUDA_PTX_PATHS INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/kernels" OPTIONS -DSIM_CODE -arch=${CUDA_ARCH_BIN} -code=${CUDA_ARCH_PTX} --ptxas-options=-v -O3 --use_fast_math --maxrregcount=64 )
-	endif()
-endif()
+_REQUIRE_GLEW()
+
+#--- symbols in release mode
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi" CACHE STRING "" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF" CACHE STRING "" FORCE)
 
 ######################
 # CMAKE_INSTALL_PREFIX -- path where library will be installed to
@@ -115,10 +76,9 @@ endif()
 if ( NOT DEFINED ASSET_PATH ) 
    get_filename_component ( _assets "${BASE_DIRECTORY}/assets" REALPATH )
    set ( ASSET_PATH ${_assets} CACHE PATH "Full path to /assets" )
-   add_definitions( -DASSET_PATH="${ASSET_PATH}" )
+   add_definitions( -DASSET_PATH="${ASSET_PATH}/" )
 endif()
-file(GLOB GLSL_FILES ${ASSET_PATH}/*.glsl )
-add_definitions(-DASSET_PATH="${ASSET_PATH}")
+add_definitions(-DASSET_PATH="${ASSET_PATH}/")
 
 #####################################################################################
 # Executable
@@ -139,7 +99,7 @@ if ( NOT DEFINED WIN32 )
 ENDIF()
 include_directories ("${CMAKE_CURRENT_SOURCE_DIR}")    
 
-add_executable (${PROJNAME} ${ALL_SOURCE_FILES} ${GLSL_FILES} ${CUDA_FILES} )
+add_executable (${PROJNAME} ${ALL_SOURCE_FILES} ${GLSL_FILES} )
 
 set_property ( TARGET ${PROJNAME} APPEND PROPERTY DEPENDS )
 
@@ -157,7 +117,6 @@ _LINK ( PROJECT ${PROJNAME} OPT ${LIBRARIES_OPTIMIZED} DEBUG ${LIBRARIES_DEBUG} 
 #
 _MSVC_PROPERTIES()
 source_group("Source Files" FILES ${MAIN_FILES} ${COMMON_SOURCE_FILES} ${PACKAGE_SOURCE_FILES})
-source_group("CUDA" FILES ${CUDA_FILES} )
 
 #####################################################################################
 # Install Binaries
@@ -166,23 +125,20 @@ _DEFAULT_INSTALL_PATH()
 
 # *NOTE*: file COPY is at cmake-time, not compile-time. Need to replace with add_custom_command -E copy_directory (my own _COPY)
 
-file (COPY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION ${EXECUTABLE_OUTPUT_PATH} )	# assets folder
-_INSTALL ( FILES ${SHADERS} DESTINATION "${EXECUTABLE_OUTPUT_PATH}/assets" )		    # shaders
-_INSTALL ( FILES ${PACKAGE_DLLS} DESTINATION ${EXECUTABLE_OUTPUT_PATH} )		        # DLLs
-_INSTALL_PTX ( FILES ${CUDA_PTX_PATHS} DESTINATION ${EXECUTABLE_OUTPUT_PATH} OUTPUT INSTALL_LIST )
-install ( FILES $<TARGET_PDB_FILE:${PROJNAME}> DESTINATION ${EXECUTABLE_OUTPUT_PATH} OPTIONAL )		# PDB
+file (COPY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION ${CMAKE_INSTALL_PREFIX} )	# assets folder
+_INSTALL ( FILES ${GLEW_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX} )
+_INSTALL ( FILES ${SHADERS} DESTINATION "${CMAKE_INSTALL_PREFIX}/assets" )		# shaders
+_INSTALL ( FILES ${PACKAGE_DLLS} DESTINATION ${CMAKE_INSTALL_PREFIX} )			# DLLs
+# _INSTALL_PTX ( FILES ${CUDA_PTX_PATHS} DESTINATION ${CMAKE_INSTALL_PREFIX} OUTPUT INSTALL_LIST )
+install ( FILES $<TARGET_PDB_FILE:${PROJNAME}> DESTINATION ${CMAKE_INSTALL_PREFIX} OPTIONAL )		# PDB
 
-install ( FILES ${INSTALL_LIST} DESTINATION ${EXECUTABLE_OUTPUT_PATH} )		            # exe, pdb
+install ( FILES ${INSTALL_LIST} DESTINATION ${EXECUTABLE_OUTPUT_PATH} )		# exe, pdb
 
 ###########################
 # Done
 message ( STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}" )
 message ( STATUS "CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}" )
-message ( STATUS "EXECUTABLE_OUTPUT_PATH: ${EXECUTABLE_OUTPUT_PATH}" )
 message ( STATUS "LIBS OPTIMIZED: ${LIBRARIES_OPTIMIZED}" )
 message ( STATUS "LIBS DEBUG:     ${LIBRARIES_DEBUG}" )
 message ( STATUS "PACKAGED DLLS:  ${PACKAGE_DLLS}" )
-
-
-
-
+message ( STATUS "INSTALLED PATH: ${CMAKE_INSTALL_PREFIX}" )

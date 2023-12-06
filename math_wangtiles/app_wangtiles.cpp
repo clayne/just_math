@@ -48,8 +48,8 @@
 
 #include <time.h>
 #include "main.h"			// window system 
-#include "nv_gui.h"			// gui system
-#include "image.h"
+#include "gxlib.h"			// gui system
+using namespace glib;
 
 #include "wang_tiles.h"
 
@@ -69,11 +69,11 @@ public:
 
 	WangTiles	wt;
 
-	Image		img;
+	ImageX		img;
 	float*		density;
 
-	Vector3DF	m_view;
-	Vector4DF	m_pal[16];
+	Vec3F	m_view;
+	Vec4F	m_pal[16];
 	
 	int			mouse_down;
 };
@@ -85,9 +85,8 @@ bool Sample::init ()
 	int w = getWidth(), h = getHeight();			// window width & height
 
 	addSearchPath ( ASSET_PATH );
-	init2D ( "arial_256" );
-	setview2D ( w, h );	
-	setText ( 16, 1 );			
+	init2D ( "arial" );	
+	setTextSz ( 16, 1 );			
 
 	//-- 16-color palette
 	for (int n = 0; n < 16; n++) {
@@ -109,7 +108,7 @@ bool Sample::init ()
 	}
 	
 	//-- Construct density function
-	Vector3DF pix;
+	Vec3F pix;
 	float v;
 	int xres = img.GetWidth();
 	int yres = img.GetHeight();
@@ -117,8 +116,9 @@ bool Sample::init ()
 	float* density = (float*) malloc ( xres*yres* sizeof(float) );
 	for (int y = 0; y < yres; y++)
 		for (int x = 0; x < xres; x++) {
-			pix = img.GetPixelUV( float(x)/xres, float(y)/yres );		// UV = using range [0,1]  (does not mean a different channel)
-			density[y*xres+x] = pix.LengthFast() - 0.3;					// Adjust gamma and offset here.. LengthFast = grayscale from RGB vector
+			pix = img.GetPixelUV( float(x)/xres, float(y)/yres );	// UV = using range [0,1]
+			v = Vec3F(pix).LengthFast() / 256.0;									// convert color to grayscale value
+			density[y*xres+x] = v - 0.3;													//	adjust gamma and offset here
 		}
 
 	wt.SetDensityFunc ( density, img.GetWidth(), img.GetHeight() );		// assign density function to Wang Tile sampler
@@ -132,54 +132,55 @@ bool Sample::init ()
 void Sample::drawGrid()
 {
 	int w = getWidth(), h = getHeight();
-	for (int n = 0; n <= w; n+=50 ) 	drawLine ( n, 0, n, h, 1, 1, 1, .7);
-	for (int n = 0; n <= h; n+=50) 	drawLine(0, n, w, n, 1, 1, 1, .7);	
+	for (int n = 0; n <= w; n+=50 ) 	drawLine ( Vec2F(n, 0), Vec2F(n, h), Vec4F(1, 1, 1, .7) );
+	for (int n = 0; n <= h; n+=50)		drawLine( Vec2F(0, n), Vec2F(w, n), Vec4F(1, 1, 1, .7) );	
 }
 
 void Sample::display ()
 {	
-	Vector3DF pnt;
-	Vector4DF clr;
-	Vector3DF cmin, cmax;
+	Vec3F pnt;
+	Vec4F clr;
+	Vec3F cmin, cmax;
 	float zoom;
 
 	int w = getWidth();
 	int h = getHeight();
-	Vector3DF imgres ( img.GetWidth(), img.GetHeight(), 0 );
+	Vec3F imgres ( img.GetWidth(), img.GetHeight(), 0 );
 
 	clearGL();
 
-	start2D();
+	start2D( w, h );
 		
-		drawImg ( img.getGLID(), 0, 0, 200, 200, 1, 1, 1, 1);
+		drawImg ( &img, Vec2F(0,0), Vec2F(200,200), Vec4F(1,1,1,1) );
 		
 		// Determine normalized view domain (portion of image to sample)
-		cmin = Vector3DF(m_view.x, m_view.y, 0) / Vector3DF(imgres.x, imgres.y, 0);
-		cmax = Vector3DF(m_view.x + imgres.x / m_view.z, m_view.y + imgres.y / m_view.z, 0 ) / Vector3DF(imgres.x, imgres.y, 0 );
+		cmin = Vec3F(m_view.x, m_view.y, 0) / Vec3F(imgres.x, imgres.y, 0);
+		cmax = Vec3F(m_view.x + imgres.x / m_view.z, m_view.y + imgres.y / m_view.z, 0 ) / Vec3F(imgres.x, imgres.y, 0 );
 		float toneScalar = 2000.0;
 		
 		// Generate points using Wang Tiles, given view domain, zoom factor, and tone scale
 		int pnts = wt.RecurseTileImage(cmin, cmax, m_view.z, toneScalar);			
 		
-		Vector3DF pt, pos;
-		Vector4DF pix (1,1,1,1);
+		Vec2F pt, pos;
+		Vec4F pix (1,1,1,1);
 		
 		// Draw points
 		for (int n=0; n < pnts; n++ ) {
 			pt = wt.getPnt(n);
 			pos.x = (pt.x - cmin.x) * m_view.z * w;
-			pos.y = (pt.y - cmin.y) * m_view.z * h;
-			// pix = img.GetPixelUV( pt.x, pt.y );		//--- with color (slower)
-			drawPnt ( pos.x, pos.y, pix );
+			pos.y = (pt.y - cmin.y) * m_view.z * h;			
+			//pix = img.GetPixelUV( pt.x, pt.y ) * (1.f/256);		//--- with color (slower)
+
+			drawLine ( pos, pos+Vec2F(0.5,0.5), pix ); 			
+			// drawPoint ( pos.x, pos.y, pix );
 		}
 
 	end2D();
 
-	draw2D (); 	
+	drawAll (); 	
 
 	appPostRedisplay();								// Post redisplay since simulation is continuous
 }
-
 
 
 void Sample::mouse(AppEnum button, AppEnum state, int mods, int x, int y)
@@ -196,7 +197,7 @@ void Sample::motion (AppEnum button, int x, int y, int dx, int dy)
 	// Get camera for scene
 	bool shift = (getMods() & KMOD_SHIFT);		// Shift-key to modify light
 	float fine = 0.5f;
-	Vector3DF dang; 
+	Vec3F dang; 
 
 	switch ( mouse_down ) {	
 	case AppEnum::BUTTON_LEFT:  {	
