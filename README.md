@@ -59,15 +59,15 @@ Keep these settings. CUDA and/or Console mode are not yet well supported.
 
 **Step 1)** Cmake and build Libmin from <a href="https://github.com/ramakarl/libmin">here</a> <br>
 Libmin repo: <a href="https://github.com/ramakarl/libmin">https://github.com/ramakarl/libmin</a><br>
-Windows: `cmake -S \just_math\libmin -B \build\libmin`<br>
+Windows: `cmake -S libmin -B \build\libmin`<br>
 Linux: `cmake -DBUILD_OPENGL=OFF`<br>
  (you may need to create a libmin\bin folder and copy liblibmin.so into libmin\bin\libmind.so and libmin\bin\libmin.so)<br>
-The binary (build) path should be outside of the source \just_math folder.<br>
-You must successfully build libmin before proceeding to step 2.<br>
+The binary (build) path should be outside of the source \libmin folder.<br>
+**You must successfully build libmin before proceeding to step 2**.<br>
 
 **Step 2)** Cmake and build sample. <br>
-Windows: `cmake -S \just_math\raycast -B \build\raycast`<br>
-Linux: `cmake -DBUILD_OPENGL=OFF -DBUILD_CONSOLE=ON -DLIBMIN_ROOT_DIR={abspath}`<br>
+Windows: `cmake -S \just_math\math_raycast -B \build\math_raycast -DLIBMIN_PATH=**\build\libmin**`<br>
+Linux: `cmake -DBUILD_OPENGL=OFF -DBUILD_CONSOLE=ON -DLIBMIN_PATH=**/usr/lib/libmin**`<br>
 **Specify the installed path of libmin as LIBMIN_PATH during cmake.** <br>
 The binary (build) path should be outside of the source \just_math folder.<br>
 Build and run the sample.<br>
