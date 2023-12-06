@@ -46,7 +46,7 @@ using B-Splines, Bezier Curves, and Catmull-Rom splines for position. Slerp or S
 
 ## News & Updates
 
-**UPDATES**: 
+**UPDATES**: <br>
 Dec 5th, 2023 - These steps confirmed working with libmin repo and Visual Studio 2019 in Dec 2023 for all samples.<br>
 
 ## How to Build
