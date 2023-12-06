@@ -68,7 +68,8 @@ The binary (build) path should be outside of the source \libmin folder.<br>
 **Step 2)** Cmake and build sample. <br>
 Windows: `cmake -S \just_math\math_raycast -B \build\math_raycast -DLIBMIN_PATH=\build\libmin`<br>
 Linux: `cmake -DBUILD_OPENGL=OFF -DBUILD_CONSOLE=ON -DLIBMIN_PATH=/usr/lib/libmin`<br>
-**Specify the installed path of libmin as LIBMIN_PATH during cmake. Replace LIBMIN_PATH=\build\libmin with location of your libmin install path, not the libmin source.** <br>
+**Specify the installed path of libmin as LIBMIN_PATH during cmake.<br>
+Replace LIBMIN_PATH=\build\libmin with location of your libmin install path, not the libmin source.** <br>
 The binary (build) path should be outside of the source \just_math folder.<br>
 Build and run the sample.<br>
 
