@@ -4,10 +4,6 @@ Just Math - A collection of pure math demos.
 
 The goal of Just Math is to provide both a visual example and code demonstrations of specific concepts in computer graphics, mathematics, simulation and AI. 
 
-*UPDATE (DEC 2023)*: 
-Just_math makes use of Libmin, now provided in a separate repo here: <a href="https://github.com/ramakarl/libmin">https://github.com/ramakarl/libmin</a>
-All samples have been updated to be compatible with this libmin.
-
 Copyright 2007-2023 (c) Quanta Sciences, Rama Hoetzlein, <a href="http://ramakarl.com">htpp://ramakarl.com</a>. MIT License.<br>
 Contact: ramahoetzlein@gmail.com
 
@@ -50,7 +46,10 @@ Win10, Visual Studio 2019 - definitely<br>
 Win10/11, VS{other} - probably<br>
 Linux - yes, libmin and math_belief_prop only<br>
 Mac - unknown<br>
-Dependencies: OpenGL only, CUDA is optional (flag at cmake time)<br>
+Dependencies: 
+- <a href="https://github.com/ramakarl/libmin">Libmin</a> - minimal utilitiy libary for graphics.
+- OpenGL 
+- CUDA is optional (flag at cmake time)<br>
 
 Cmake build options should default to BUILD_OPENGL=ON, BUILD_CUDA=off, BUILD_CONSOLE=off.<br>
 Keep these settings. CUDA and/or Console mode are not yet well supported.
