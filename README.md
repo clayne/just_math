@@ -47,11 +47,11 @@ using B-Splines, Bezier Curves, and Catmull-Rom splines for position. Slerp or S
 ## News & Updates
 
 **UPDATES**: <br>
-Dec 5, 2023 - Build steps confirmed working with latest libmin repo and Visual Studio 2019 in Dec 2023 for all samples.<br>
+Dec 5, 2023 - Build steps confirmed working with latest libmin repo and Visual Studio 2019 in Dec 2023 for all samples. Removed <a href="https://github.com/ramakarl/libmin">libmin</a> from this repo and put into its own separate repository.<br>
 Sep 16,2023 - Obj materials sample added.<br>
 Aug 12,2023 - G-coder sample added.<br>
 Mar 13,2023 - Bilinear Patch intersection sample added.<br>
-Feb 7, 2023 - Artificial Neural Network sample added.<br>
+Feb 7, 2023 - Artificial Neural Network sample added. PS: For fun I wrote the original wikipedia article for <a href="https://en.wikipedia.org/wiki/Tensor_(machine_learning)">Tensor (machine learning)</a>.<br>
 
 ## How to Build
 <br>
