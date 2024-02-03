@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
+set (CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR} CACHE PATH "")
+
 set(PROJNAME math_quat_trajectory )
 Project(${PROJNAME})
 Message(STATUS "-------------------------------")
@@ -7,9 +9,9 @@ Message(STATUS "Processing Project ${PROJNAME}:")
 #####################################################################################
 # LIBMIN Installed Path
 #
-set ( LIBMIN_PATH "d:/codes/build/libmin" CACHE STRING "Location of Libmin")
-list( APPEND CMAKE_MODULE_PATH "${LIBMIN_PATH}/cmake" )
-list( APPEND CMAKE_PREFIX_PATH "${LIBMIN_PATH}/cmake" )
+get_filename_component( LIBMIN_ROOT "d:/codes/libmin" REALPATH )
+list( APPEND CMAKE_MODULE_PATH "${LIBMIN_ROOT}/cmake" )
+list( APPEND CMAKE_PREFIX_PATH "${LIBMIN_ROOT}/cmake" )
 
 #####################################################################################
 # Include LIBMIN
@@ -58,23 +60,11 @@ _REQUIRE_GLEW()
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi" CACHE STRING "" FORCE)
 set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF" CACHE STRING "" FORCE)
 
-######################
-# CMAKE_INSTALL_PREFIX -- path where library will be installed to
-
-if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-   if ( WIN32 )
-      get_filename_component ( _instpath "${CMAKE_CURRENT_BINARY_DIR}" REALPATH )
-   else()
-      get_filename_component ( _instpath "/usr/local/shapes" REALPATH )
-   endif()
-   set ( CMAKE_INSTALL_PREFIX ${_instpath} CACHE PATH "default install path" FORCE)   
-endif()
-
 #####################################################################################
 # Asset Path
 #
 if ( NOT DEFINED ASSET_PATH ) 
-   get_filename_component ( _assets "${BASE_DIRECTORY}/assets" REALPATH )
+   get_filename_component ( _assets "${CMAKE_CURRENT_SOURCE_DIR}/assets" REALPATH )
    set ( ASSET_PATH ${_assets} CACHE PATH "Full path to /assets" )
    add_definitions( -DASSET_PATH="${ASSET_PATH}/" )
 endif()

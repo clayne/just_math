@@ -562,7 +562,7 @@ void Sample::drawBezierSlerp (float dt)
 
 	char msg[256];
 	sprintf(msg, "BezierSlerp");
-	drawText3D( Vec3F(drawoffs.x,0,5), 2, msg, Vec4F(1,1,1,1) );
+	drawText3D ( Vec3F(drawoffs.x,0,5), 2, msg, Vec4F(1,1,1,1) );
 }
 
 
@@ -636,6 +636,7 @@ void Sample::display ()
 	end3D();
 
 	start2D( w, h );			// help
+		setTextSz ( 24, 0 );		
 		drawText( Vec2F(10,10), "Press 'g' to regenerate.", Vec4F(1,1,1,1) );
 		drawText( Vec2F(10,30), "Press 'r' to regenerate (very random).",Vec4F(1,1,1,1) );
 		drawText( Vec2F(10,50), "Press 'a' to align keys.", Vec4F(1,1,1,1) );
@@ -644,6 +645,22 @@ void Sample::display ()
 		drawText( Vec2F(10,110), "Press < > to change number of keys.", Vec4F(1,1,1,1) );
 		drawText( Vec2F(10,130), "Press 1,2,3,4,5,6 to change B-Spline degree.", Vec4F(1,1,1,1) );
 		drawText( Vec2F(10,150), "Press - + to adjust Catmull-Rom tension.", Vec4F(1,1,1,1) );
+
+		//------------ DEBUGGING FONTS
+		/* 
+		Vec2F fa (0,400);				// font box, top-left
+		Vec2F fb (400,800);			// font box, bot-right
+		drawImg ( &gx.m_font_img, fa, fb, Vec4F(1,1,1,1) );
+		gxFont& font = gx.getCurrFont ();
+		gxGlyph gly;
+		Vec2F pa, pb;
+		for (int c=0; c < 256; c++) {
+			 gly = font.glyphs[ c ];
+			 pa = fa + Vec2F(gly.u, gly.v) * (fb-fa);
+			 pb = fa + Vec2F(gly.u+gly.du, gly.v+gly.dv)  * (fb-fa);			 
+			 drawRect ( pa, pb, Vec4F(1,1,0,1) );
+		} */
+
 	end2D();
 
 	drawAll();
