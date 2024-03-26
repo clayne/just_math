@@ -72,15 +72,29 @@ Keep these settings. CUDA and/or Console mode are not yet well supported.
 
 **Step 1)** Cmake and build Libmin from <a href="https://github.com/ramakarl/libmin">here</a> <br>
 Libmin repo: <a href="https://github.com/ramakarl/libmin">https://github.com/ramakarl/libmin</a><br>
-Windows: `cmake -S libmin -B \build\libmin`<br>
-Linux: `cmake -DBUILD_OPENGL=OFF`<br>
- (you may need to create a libmin\bin folder and copy liblibmin.so into libmin\bin\libmind.so and libmin\bin\libmin.so)<br>
-The binary (build) path should be outside of the source \libmin folder.<br>
+The binary (build) path should be outside of the \libmin repo folder as follows.<br>
+Windows: 
+1.1) `cmake CMakeLists.txt -B..\build\libmin {options}`
+1.2) Open and compile the generated \build\libmin\libmin.sln in Visual Studio 2019+
+Linux: 
+1.1) `cmake CMakeLists.txt -B../build/libmin {options}`<br>
+1.2) `make ../build/libmin`
+Options (multiple may be specified):
+-DBUILD_OPENGL=true/false - for interactive apps, required for just_math
+-DBUILD_GLEW=true/false - for interactive apps, required for just_math
+-DBUILD_CUDA=true/false - for GPU-based apps
+-DBUILD_OPENSSL=true/false - for secure network apps
+-DBUILD_BCRYPT=true/false - for secure network apps
+
 **You must successfully build libmin before proceeding to step 2**.<br>
 
 **Step 2)** Cmake and build sample. <br>
-Windows: `cmake -S \just_math\math_raycast -B \build\math_raycast -DLIBMIN_PATH=\build\libmin`<br>
-Linux: `cmake -DBUILD_OPENGL=OFF -DBUILD_CONSOLE=ON -DLIBMIN_PATH=/usr/lib/libmin`<br>
+Windows: 
+2.1) `cmake -S \just_math\{sample_name} -B \build\{sample_name} -DLIBMIN_PATH=\build\libmin`<br>
+2.2) Open and compile the generated \build\{sample_folder}\{sample_name}.sln in Visual Studio 2019+
+Linux: 
+2.1) `cmake -S \just_math\{sample_name} -B \build\{sample_name} -DLIBMIN_PATH=/build/libmin`<br>
+2.2) `make \build\{sample_name}
 **Specify the installed path of libmin as LIBMIN_PATH during cmake.<br>
 Replace LIBMIN_PATH=\build\libmin with location of your libmin install path, not the libmin source.** <br>
 The binary (build) path should be outside of the source \just_math folder.<br>
