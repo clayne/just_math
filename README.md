@@ -81,11 +81,13 @@ Linux: <br>
 1.1) `cmake CMakeLists.txt -B../build/libmin {options}`<br>
 1.2) `make ../build/libmin`<br>
 Options (multiple may be specified):<br>
--DBUILD_OPENGL=true/false - for interactive apps, required for just_math<br>
--DBUILD_GLEW=true/false - for interactive apps, required for just_math<br>
--DBUILD_CUDA=true/false - for GPU-based apps<Br>
--DBUILD_OPENSSL=true/false - for secure network apps<br>
--DBUILD_BCRYPT=true/false - for secure network apps<br><br>
+-DBUILD_OPENGL=true/false - for interactive apps, required for just_math, default=true<br>
+-DBUILD_GLEW=true/false - for interactive apps, required for just_math, default=true<br>
+-DBUILD_CUDA=true/false - for GPU-based apps, default=false<Br>
+-DBUILD_OPENSSL=true/false - for secure network apps, default=false<br>
+-DBUILD_BCRYPT=true/false - for secure network apps, default=false<br>
+-DUSE_NVTX - for Nvidia Nsight timeline-based profiling, cpu & gpu, default=false<br>
+-DUSE_PROFILE_NET - profile network code, default=false<br><br>
 
 **You must successfully build libmin before proceeding to step 2**.<br>
 
