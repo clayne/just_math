@@ -96,11 +96,10 @@ Windows: <br>
 2.2) Open and compile the generated \build\{sample_folder}\{sample_name}.sln in Visual Studio 2019+<br>
 Linux: <br>
 2.1) `cmake -S \just_math\{sample_name} -B \build\{sample_name} -DLIBMIN_PATH=/build/libmin`<br>
-2.2) `make \build\{sample_name}<br>
+2.2) `make \build\{sample_name}`<br>
 Libmin location:<br>
-- Specify the installed path of libmin as LIBMIN_PATH during cmake. eg. -DLIBMIN_PATH=/usr/local/libmin/<br>
-- If that doesn't work, also specify the path to the source repository with LIBMIN_REPO. eg-DLIBMIN_REPO=/libmin<br>
-<br>
+- Specify the installed path of libmin as LIBMIN_PATH during cmake. eg. `-DLIBMIN_PATH=/usr/local/libmin/`<br>
+- If that doesn't work, also specify the path to the source repository with LIBMIN_REPO. eg. `-DLIBMIN_REPO=/libmin`<br>
 Build and run the sample.<br>
 
 ## Contributions
