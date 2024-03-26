@@ -67,9 +67,6 @@ Feb 7, 2023 - Artificial Neural Network sample added. PS: For fun I wrote the or
 - OpenGL <br>
 - CUDA is optional (flag at cmake time)<br><br>
 
-Cmake build options should default to BUILD_OPENGL=ON, BUILD_CUDA=off, BUILD_CONSOLE=off.<br>
-Keep these settings. CUDA and/or Console mode are not yet well supported.
-
 **Step 1) Build Libmin** <br>
 Cmake and build Libmin from <a href="https://github.com/ramakarl/libmin">here</a> <br>
 Libmin repo: <a href="https://github.com/ramakarl/libmin">https://github.com/ramakarl/libmin</a><br>
@@ -80,6 +77,7 @@ Windows: <br>
 Linux: <br>
 1.1) `cmake CMakeLists.txt -B../build/libmin {options}`<br>
 1.2) `make ../build/libmin`<br>
+By default, you should not need to specify any additional options for just_math samples.<br>
 Options (multiple may be specified):<br>
 -DBUILD_OPENGL=true/false - for interactive apps, required for just_math (default=true)<br>
 -DBUILD_GLEW=true/false - for interactive apps, required for just_math (default=true)<br>
