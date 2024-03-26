@@ -81,17 +81,18 @@ Linux: <br>
 1.1) `cmake CMakeLists.txt -B../build/libmin {options}`<br>
 1.2) `make ../build/libmin`<br>
 Options (multiple may be specified):<br>
--DBUILD_OPENGL=true/false - for interactive apps, required for just_math, default=true<br>
--DBUILD_GLEW=true/false - for interactive apps, required for just_math, default=true<br>
--DBUILD_CUDA=true/false - for GPU-based apps, default=false<Br>
--DBUILD_OPENSSL=true/false - for secure network apps, default=false<br>
--DBUILD_BCRYPT=true/false - for secure network apps, default=false<br>
--DUSE_NVTX - for Nvidia Nsight timeline-based profiling, cpu & gpu, default=false<br>
--DUSE_PROFILE_NET - profile network code, default=false<br><br>
+-DBUILD_OPENGL=true/false - for interactive apps, required for just_math (default=true)<br>
+-DBUILD_GLEW=true/false - for interactive apps, required for just_math (default=true)<br>
+-DBUILD_CUDA=true/false - for GPU-based apps (default=false)<Br>
+-DBUILD_OPENSSL=true/false - for secure network apps (default=false)<br>
+-DBUILD_BCRYPT=true/false - for secure network apps (default=false)<br>
+-DUSE_NVTX - for Nvidia Nsight timeline-based profiling, cpu & gpu (default=false)<br>
+-DUSE_PROFILE_NET - profile network code (default=false)<br><br>
 
 **You must successfully build libmin before proceeding to step 2**.<br>
 
-**Step 2) Build sample** Cmake and build sample. <br>
+**Step 2) Build sample**<br>
+Cmake and build a sample.<br>
 The binary (build) path should be outside of the source \just_math folder as follows (-B option).<br>
 Windows: <br>
 2.1) `cmake -S \just_math\{sample_name} -B \build\{sample_name} -DLIBMIN_PATH=\build\libmin`<br>
