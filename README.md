@@ -70,31 +70,32 @@ Feb 7, 2023 - Artificial Neural Network sample added. PS: For fun I wrote the or
 Cmake build options should default to BUILD_OPENGL=ON, BUILD_CUDA=off, BUILD_CONSOLE=off.<br>
 Keep these settings. CUDA and/or Console mode are not yet well supported.
 
-**Step 1)** Cmake and build Libmin from <a href="https://github.com/ramakarl/libmin">here</a> <br>
+**Step 1)** <br>
+Cmake and build Libmin from <a href="https://github.com/ramakarl/libmin">here</a> <br>
 Libmin repo: <a href="https://github.com/ramakarl/libmin">https://github.com/ramakarl/libmin</a><br>
 The binary (build) path should be outside of the \libmin repo folder as follows.<br>
-Windows: 
-1.1) `cmake CMakeLists.txt -B..\build\libmin {options}`
-1.2) Open and compile the generated \build\libmin\libmin.sln in Visual Studio 2019+
-Linux: 
+Windows: <br>
+1.1) `cmake CMakeLists.txt -B..\build\libmin {options}`<br>
+1.2) Open and compile the generated \build\libmin\libmin.sln in Visual Studio 2019+<br>
+Linux: <br>
 1.1) `cmake CMakeLists.txt -B../build/libmin {options}`<br>
-1.2) `make ../build/libmin`
-Options (multiple may be specified):
--DBUILD_OPENGL=true/false - for interactive apps, required for just_math
--DBUILD_GLEW=true/false - for interactive apps, required for just_math
--DBUILD_CUDA=true/false - for GPU-based apps
--DBUILD_OPENSSL=true/false - for secure network apps
--DBUILD_BCRYPT=true/false - for secure network apps
+1.2) `make ../build/libmin`<br>
+Options (multiple may be specified):<br>
+-DBUILD_OPENGL=true/false - for interactive apps, required for just_math<br>
+-DBUILD_GLEW=true/false - for interactive apps, required for just_math<br>
+-DBUILD_CUDA=true/false - for GPU-based apps<Br>
+-DBUILD_OPENSSL=true/false - for secure network apps<br>
+-DBUILD_BCRYPT=true/false - for secure network apps<br><br>
 
 **You must successfully build libmin before proceeding to step 2**.<br>
 
 **Step 2)** Cmake and build sample. <br>
-Windows: 
+Windows: <br>
 2.1) `cmake -S \just_math\{sample_name} -B \build\{sample_name} -DLIBMIN_PATH=\build\libmin`<br>
-2.2) Open and compile the generated \build\{sample_folder}\{sample_name}.sln in Visual Studio 2019+
-Linux: 
+2.2) Open and compile the generated \build\{sample_folder}\{sample_name}.sln in Visual Studio 2019+<br>
+Linux: <br>
 2.1) `cmake -S \just_math\{sample_name} -B \build\{sample_name} -DLIBMIN_PATH=/build/libmin`<br>
-2.2) `make \build\{sample_name}
+2.2) `make \build\{sample_name}<br>
 **Specify the installed path of libmin as LIBMIN_PATH during cmake.<br>
 Replace LIBMIN_PATH=\build\libmin with location of your libmin install path, not the libmin source.** <br>
 The binary (build) path should be outside of the source \just_math folder.<br>
