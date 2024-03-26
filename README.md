@@ -57,9 +57,9 @@ Feb 7, 2023 - Artificial Neural Network sample added. PS: For fun I wrote the or
 <br>
 
 **Platforms:**
-- Win10, Visual Studio 2019 - definitely<br>
+- Win10, Visual Studio 2019/2022 - definitely<br>
 - Win10/11, VS{other} - probably<br>
-- Linux - let me know if you want<br>
+- Linux - should work, post any issues<br>
 <br>
 
 **Dependencies:**
