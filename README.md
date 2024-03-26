@@ -70,7 +70,7 @@ Feb 7, 2023 - Artificial Neural Network sample added. PS: For fun I wrote the or
 Cmake build options should default to BUILD_OPENGL=ON, BUILD_CUDA=off, BUILD_CONSOLE=off.<br>
 Keep these settings. CUDA and/or Console mode are not yet well supported.
 
-**Step 1)** <br>
+**Step 1) Build Libmin** <br>
 Cmake and build Libmin from <a href="https://github.com/ramakarl/libmin">here</a> <br>
 Libmin repo: <a href="https://github.com/ramakarl/libmin">https://github.com/ramakarl/libmin</a><br>
 The binary (build) path should be outside of the \libmin repo folder as follows.<br>
@@ -89,7 +89,7 @@ Options (multiple may be specified):<br>
 
 **You must successfully build libmin before proceeding to step 2**.<br>
 
-**Step 2)** Cmake and build sample. <br>
+**Step 2) Build sample** Cmake and build sample. <br>
 Windows: <br>
 2.1) `cmake -S \just_math\{sample_name} -B \build\{sample_name} -DLIBMIN_PATH=\build\libmin`<br>
 2.2) Open and compile the generated \build\{sample_folder}\{sample_name}.sln in Visual Studio 2019+<br>
