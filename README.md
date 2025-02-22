@@ -47,7 +47,7 @@ Abram Connelly and Rama Hoetzlein, 2023<br>
 <br><br>
 Commit history for BMS can be <a href="https://github.com/ramakarl/just_math/commits/main/math_belief_prop">found here.</a><br>
 BMS code can be found in <a href="https://github.com/ramakarl/just_math/tree/main/math_belief_prop">math_belief_prop</a>, which also includes BP and WFC.<br>
-Abram's more recent work and publicaiton can be <a href="https://zzyzek.github.io/PunchOutModelSynthesisPaper">found here.</a><br><br>
+Abram's more recent & updated work can be <a href="https://zzyzek.github.io/PunchOutModelSynthesisPaper">found here.</a><br><br>
 
 ## News & Updates
 
