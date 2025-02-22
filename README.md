@@ -114,8 +114,8 @@ I am interested in building a community around simple, well documented, math cod
 
 ## License & Copyright info
 MIT License.<br>
-Copyright 2007-2024 (c) Quanta Sciences & Rama Hoetzlein: 3DDDA, ANN, Basis, Bilinear_Patch, Cells, Deform, Displace, Gcoder, Invk, Obj_Materials, QuadSquad, QuatTraj, Raycast, Voxelizer
-Copyright 2022-2023 (c) Abram Connelly and Rama Hoetzlein: math_belief_prop (incl. BMS, WFC, BP, LSA)
+Copyright 2007-2024 (c) Quanta Sciences & Rama Hoetzlein: 3DDDA, ANN, Basis, Bilinear_Patch, Cells, Deform, Displace, Gcoder, Invk, Obj_Materials, QuadSquad, QuatTraj, Raycast, Voxelizer<br>
+Copyright 2022-2023 (c) Abram Connelly and Rama Hoetzlein: math_belief_prop (incl. BMS, WFC, BP, LSA)<br>
 The Just Math samples are MIT Licensed.<br>
 Libmin is MIT Licensed with contributions from other BSD and MIT licensed sources.<br>
 Contact: Rama Hoetzlein at ramahoetzlein@gmail.com
