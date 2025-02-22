@@ -47,7 +47,7 @@ Abram Connelly and Rama Hoetzlein, 2023<br>
 <br><br>
 Commit history for BMS can be <a href="https://github.com/ramakarl/just_math/commits/main/math_belief_prop">found here.</a><br>
 BMS code can be found in <a href="https://github.com/ramakarl/just_math/tree/main/math_belief_prop">math_belief_prop</a>, which also includes BP and WFC.<br>
-Abram's more recent & updated work, Punch Out Model Synthesis, can be <a href="https://zzyzek.github.io/PunchOutModelSynthesisPaper">found here</a> and on <a href="https://arxiv.org/abs/2501.14786">arXiv here.</a><br><br>
+The latest tiled generation research by Abram, who goes by the name Zzyv Zzyzek, can be <a href="https://zzyzek.github.io/PunchOutModelSynthesisPaper">found here</a> and on <a href="https://arxiv.org/abs/2501.14786">arXiv here.</a><br><br>
 
 ## News & Updates
 
